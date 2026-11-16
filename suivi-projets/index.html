@@ -3,17 +3,15 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Suivi des projets – Lab 17 bis</title>
+  <title>Suivi des projets</title>
   <link rel="stylesheet" href="../vendor/dsfr/dsfr.min.css">
   <link rel="stylesheet" href="../vendor/dsfr/utility/icons/icons.min.css">
-  <link rel="stylesheet" href="app.css?v=5">
+  <link rel="stylesheet" href="commun/page.css?v=1">
+  <link rel="stylesheet" href="app.css?v=6">
   <script src="https://docs.getgrist.com/grist-plugin-api.js"></script>
 </head>
 <body>
-  <header class="sp-entete">
-    <p class="sp-entete__titre">Suivi des projets</p>
-    <p class="fr-badge fr-badge--sm fr-badge--new fr-badge--no-icon">Prototype</p>
-  </header>
+  <div id="entete"></div>
 
   <div id="sp-demo" class="fr-notice fr-notice--info" hidden>
     <div class="fr-container--fluid sp-marge">
@@ -27,8 +25,9 @@
     <p>Chargement…</p>
   </main>
 
-  <footer class="sp-pied sp-marge">
-    <p>Lab 17 bis · Dynamique Modernisation &amp; Transformation · Académie de Reims</p>
+  <div id="pied"></div>
+  <div class="sp-pied sp-marge">
+    <a class="fr-link fr-text--sm" href="#/reglages">Réglages du suivi</a>
     <div class="sp-pied__theme">
       <label class="fr-label" for="sp-theme">Thème</label>
       <select class="fr-select fr-select--sm" id="sp-theme">
@@ -37,8 +36,10 @@
         <option value="dark">Sombre</option>
       </select>
     </div>
-  </footer>
+  </div>
 
-  <script src="app.js?v=5"></script>
+  <script src="commun/page-dsfr.js?v=1"></script>
+  <script src="commun/page-editeur.js?v=1"></script>
+  <script src="app.js?v=6"></script>
 </body>
 </html>

@@ -277,3 +277,15 @@ body {
 .sp-contact { margin: 2.5rem 0 0; padding-top: 1rem; border-top: 1px solid var(--border-default-grey); color: var(--text-mention-grey); }
 .sp-pas-moi { margin-top: 1.5rem; color: var(--text-mention-grey); }
 .sp-pas-moi .fr-link { vertical-align: baseline; }
+
+/* En-tête et pied configurables (module commun) dans un widget : plus compacts */
+.pd-entete .fr-header__body-row { padding: .5rem 0; }
+.pd-entete .fr-container, .pd-pied .fr-container { max-width: none; padding-left: 1.5rem; padding-right: 1.5rem; }
+.pd-pied { margin-top: 0; }
+
+/* Réglages */
+.sp-reglages section { margin-bottom: 2rem; padding-bottom: 1rem; border-bottom: 1px solid var(--border-default-grey); max-width: 56rem; }
+.sp-reglages__couleurs { display: flex; flex-wrap: wrap; gap: .75rem 1.5rem; margin-bottom: 1rem; }
+.sp-reglages__couleur { display: flex; align-items: center; gap: .5rem; }
+.sp-reglages__couleur .fr-badge { margin: 0; }
+.sp-reglages__couleur input[type="color"] { width: 2.5rem; height: 2rem; padding: 0; border: 1px solid var(--border-default-grey); }

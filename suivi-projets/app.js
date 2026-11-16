@@ -39,6 +39,36 @@
   };
 
   var JOURS_ALERTE = 60;
+  var DOMAINE_COURRIEL = '';
+  var NOM_COLONNE_CONFIG = 'Config_suivi';
+  var reglages = {};     // réglages lus dans la description de la colonne Projets.Config_suivi
+
+  // Valeurs par défaut, reprises si les réglages ne les remplacent pas.
+  var DEFAUTS = {
+    phases: PHASES, etats: ETATS, origines: ORIGINES, thematiques: THEMATIQUES,
+    etatsAction: ETATS_ACTION, typesJournal: TYPES_JOURNAL, typesDocument: TYPES_DOCUMENT,
+    couleursPhase: COULEUR_PHASE, couleursEtat: COULEUR_ETAT, couleursJournal: COULEUR_JOURNAL
+  };
+
+  function appliquerReglages(r) {
+    reglages = r || {};
+    var l = reglages.listes || {};
+    function liste(cle) { return Array.isArray(l[cle]) && l[cle].length ? l[cle] : DEFAUTS[cle]; }
+    PHASES = liste('phases'); ETATS = liste('etats'); ORIGINES = liste('origines'); THEMATIQUES = liste('thematiques');
+    ETATS_ACTION = liste('etatsAction'); TYPES_JOURNAL = liste('typesJournal'); TYPES_DOCUMENT = liste('typesDocument');
+    var c = reglages.couleurs || {};
+    COULEUR_PHASE = Object.assign({}, DEFAUTS.couleursPhase, c.phases || {});
+    COULEUR_ETAT = Object.assign({}, DEFAUTS.couleursEtat, c.etats || {});
+    COULEUR_JOURNAL = Object.assign({}, DEFAUTS.couleursJournal, c.typesJournal || {});
+    JOURS_ALERTE = Number(reglages.joursAlerte) > 0 ? Number(reglages.joursAlerte) : 60;
+    DOMAINE_COURRIEL = String(reglages.domaineCourriel || '').replace(/^@/, '').trim();
+    var page = Object.assign({ marque: '', titre: 'Suivi des projets', pied: { accessibilite: '' } }, reglages.page || {});
+    if (window.PageDSFR) {
+      var cible = window.PageDSFR.appliquer(page, { entete: document.getElementById('entete'), pied: document.getElementById('pied'), accueil: '#/' });
+      cible.entete.id = 'entete';
+      cible.pied.id = 'pied';
+    }
+  }
   var TABLES = ['Structures', 'Personnes', 'Comptes', 'Parametres', 'Projets', 'Actions', 'Journal', 'Documents'];
 
   // ---------------------------------------------------------------------------
@@ -46,6 +76,7 @@
   // ---------------------------------------------------------------------------
 
   var DEMO = window.self === window.top;
+  var meta = { colonnes: [], tables: [], colConfig: false };
   var data = {};      // table -> tableau de lignes
   var idx = {};       // table -> { id: ligne }
   var enfants = {};   // id de structure -> [ids enfants]
@@ -122,8 +153,15 @@
 
   function badge(texte, couleur, petit) {
     if (!texte) return '';
-    var cls = 'fr-badge fr-badge--no-icon' + (petit === false ? '' : ' fr-badge--sm') + (couleur ? ' fr-badge--' + couleur : '');
-    return '<p class="' + cls + '">' + esc(texte) + '</p>';
+    var hexa = /^#[0-9a-f]{6}$/i.test(couleur || '');
+    var cls = 'fr-badge fr-badge--no-icon' + (petit === false ? '' : ' fr-badge--sm') + (couleur && !hexa ? ' fr-badge--' + couleur : '');
+    var style = '';
+    if (hexa) {
+      // Texte clair ou foncé selon la luminosité du fond.
+      var n = parseInt(couleur.slice(1), 16), lum = (0.299 * (n >> 16) + 0.587 * ((n >> 8) & 255) + 0.114 * (n & 255)) / 255;
+      style = ' style="background-color:' + couleur + ';color:' + (lum > 0.6 ? '#161616' : '#ffffff') + '"';
+    }
+    return '<p class="' + cls + '"' + style + '>' + esc(texte) + '</p>';
   }
 
   function resumeCourt(t) {
@@ -152,6 +190,7 @@
   }
 
   function chargerDemo() {
+    appliquerReglages({ domaineCourriel: 'exemple.fr', page: { titre: 'Suivi des projets', sousTitre: 'Démonstration' } });
     return fetch('../donnees-fictives/exemple.json')
       .then(function (r) { return r.json(); })
       .then(function (json) {
@@ -171,11 +210,23 @@
   }
 
   function chargerGrist() {
-    return Promise.all(TABLES.map(function (t) {
+    var config = Promise.all([grist.docApi.fetchTable('_grist_Tables'), grist.docApi.fetchTable('_grist_Tables_column')])
+      .then(function (m) {
+        var tables = lignesDepuisColonnes(m[0]), cols = lignesDepuisColonnes(m[1]);
+        var projets = tables.filter(function (t) { return t.tableId === 'Projets'; })[0];
+        meta.colonnes = cols;
+        meta.tables = tables;
+        var c = projets && cols.filter(function (x) { return x.parentId === projets.id && x.colId === NOM_COLONNE_CONFIG; })[0];
+        meta.colConfig = !!c;
+        var r = {};
+        try { r = c && c.description ? JSON.parse(c.description) : {}; } catch (e) { r = {}; }
+        appliquerReglages(r);
+      }).catch(function () { appliquerReglages({}); });
+    return Promise.all([config].concat(TABLES.map(function (t) {
       return grist.docApi.fetchTable(t)
         .then(function (cols) { data[t] = lignesDepuisColonnes(cols); })
         .catch(function () { data[t] = []; });
-    }));
+    })));
   }
 
   function charger() {
@@ -246,15 +297,16 @@
 
   function emailValide(email) { return /^[^\s@]+@[^\s@]+\.[a-z]{2,}$/i.test(String(email || '').trim()); }
 
-  // « MARTIN Claire » ou « Claire Martin » -> claire.martin@ac-reims.fr (simple suggestion, modifiable).
+  // « MARTIN Claire » ou « Claire Martin » -> claire.martin@<domaine réglé> (simple suggestion, modifiable).
   function emailSuggere(nom) {
+    if (!DOMAINE_COURRIEL) return '';
     var mots = String(nom || '').trim().split(/\s+/).filter(Boolean);
     if (mots.length < 2) return '';
     var majuscules = mots.filter(function (m) { return m.length > 1 && m === m.toUpperCase(); });
     var famille = majuscules.length && majuscules.length < mots.length ? majuscules : [mots[mots.length - 1]];
     var prenoms = mots.filter(function (m) { return famille.indexOf(m) === -1; });
     function net(l) { return sansAccent(l.join('-')).replace(/[^a-z-]/g, ''); }
-    return net(prenoms) + '.' + net(famille) + '@ac-reims.fr';
+    return net(prenoms) + '.' + net(famille) + '@' + DOMAINE_COURRIEL;
   }
 
   function libellePersonne(x) {
@@ -442,6 +494,7 @@
     if (h === 'nouveau') return { vue: 'form', id: null };
     if (h === 'pilotage') return { vue: 'pilotage' };
     if (h === 'profil') return { vue: 'profil' };
+    if (h === 'reglages') return { vue: 'reglages' };
     if ((m = h.match(/^projet\/(\d+)\/modifier$/))) return { vue: 'form', id: +m[1] };
     if ((m = h.match(/^projet\/(\d+)$/))) return { vue: 'fiche', id: +m[1] };
     return { vue: 'banque' };
@@ -462,8 +515,108 @@
     else if (r.vue === 'form') html = vueFormulaire(r.id);
     else if (r.vue === 'pilotage') html = vuePilotage();
     else if (r.vue === 'profil') html = vueProfil();
+    else if (r.vue === 'reglages') html = vueReglages();
     else html = vueBanque();
     app.innerHTML = html + piedContact(r);
+    if (r.vue === 'reglages') monterReglages();
+  }
+
+  // --- Réglages (propriétaires du document) ---------------------------------
+
+  var brouillonReglages = null;
+  var LISTES_REGLABLES = [
+    ['phases', 'Phases du projet (colonnes du kanban)', 'Projets', 'Phase'],
+    ['etats', 'États du projet', 'Projets', 'Etat'],
+    ['origines', 'Origines du projet', 'Projets', 'Origine'],
+    ['thematiques', 'Thématiques', 'Projets', 'Thematiques'],
+    ['etatsAction', 'États des actions du plan', 'Actions', 'Etat'],
+    ['typesJournal', 'Types de messages du journal', 'Journal', 'Type'],
+    ['typesDocument', 'Types de documents', 'Documents', 'Type']
+  ];
+  var COULEURS_REGLABLES = [['phases', 'phases', 'Couleur des phases'], ['etats', 'etats', 'Couleur des états'], ['typesJournal', 'typesJournal', 'Couleur des types de messages']];
+
+  function vueReglages() {
+    if (DEMO) return '<div class="fr-alert fr-alert--info"><p>Les réglages se font dans Grist, par un propriétaire du document.</p></div>';
+    if (!brouillonReglages) brouillonReglages = JSON.parse(JSON.stringify(reglages || {}));
+    var b = brouillonReglages;
+    b.listes = b.listes || {}; b.couleurs = b.couleurs || {};
+    var h = '<div class="sp-titre-ligne"><h1 class="fr-h3">Réglages du suivi</h1><a class="fr-link" href="#/">Retour à la banque des projets</a></div>' +
+      '<p class="fr-text--sm">Réservé aux propriétaires du document. Les réglages sont enregistrés dans la description de la colonne <code>' + NOM_COLONNE_CONFIG + '</code> de la table Projets.</p>' +
+      blocAlerte() +
+      '<div class="sp-reglages">' +
+      '<section><h2 class="fr-h5">En-tête et pied de page</h2><div id="sp-reglages-page"></div></section>' +
+      '<section><h2 class="fr-h5">Listes de valeurs</h2><p class="fr-text--sm">Une valeur par ligne. À l\'enregistrement, les listes de choix des colonnes Grist sont mises à jour. Renommer une valeur ne modifie pas les projets existants.</p>';
+    LISTES_REGLABLES.forEach(function (l) {
+      var val = (b.listes[l[0]] && b.listes[l[0]].length ? b.listes[l[0]] : DEFAUTS[l[0]]).join('\n');
+      h += '<div class="fr-input-group"><label class="fr-label" for="rg-' + l[0] + '">' + esc(l[1]) + '<span class="fr-hint-text">Colonne ' + l[2] + '.' + l[3] + '</span></label>' +
+        '<textarea class="fr-input" rows="4" id="rg-' + l[0] + '" data-reglage-liste="' + l[0] + '">' + esc(val) + '</textarea></div>';
+    });
+    h += '</section><section><h2 class="fr-h5">Couleurs des étiquettes</h2>';
+    COULEURS_REGLABLES.forEach(function (cr) {
+      var valeurs = (b.listes[cr[0]] && b.listes[cr[0]].length ? b.listes[cr[0]] : DEFAUTS[cr[0]]);
+      var perso = b.couleurs[cr[1]] || {};
+      h += '<h3 class="fr-h6">' + esc(cr[2]) + '</h3><div class="sp-reglages__couleurs">';
+      valeurs.forEach(function (v, i) {
+        var actuelle = perso[v] || '';
+        h += '<div class="sp-reglages__couleur">' + badge(v, actuelle || (cr[1] === 'phases' ? COULEUR_PHASE[v] : cr[1] === 'etats' ? COULEUR_ETAT[v] : COULEUR_JOURNAL[v]), false) +
+          '<label class="fr-sr-only" for="rgc-' + cr[1] + i + '">Couleur de ' + esc(v) + '</label>' +
+          '<input type="color" id="rgc-' + cr[1] + i + '" data-reglage-couleur="' + cr[1] + '" data-valeur="' + esc(v) + '" value="' + esc(/^#/.test(actuelle) ? actuelle : '#000091') + '">' +
+          (actuelle ? '<button type="button" class="fr-btn fr-btn--sm fr-btn--tertiary-no-outline" data-reglage-couleur-defaut="' + cr[1] + '" data-valeur="' + esc(v) + '">Par défaut</button>' : '') + '</div>';
+      });
+      h += '</div>';
+    });
+    h += '</section><section><h2 class="fr-h5">Autres réglages</h2>' +
+      '<div class="fr-input-group"><label class="fr-label" for="rg-domaine">Domaine des adresses électroniques<span class="fr-hint-text">Sert à suggérer l\'adresse d\'un collègue (prénom.nom@domaine). Exemple : ac-reims.fr. Vide : pas de suggestion.</span></label>' +
+      '<input class="fr-input" id="rg-domaine" data-reglage="domaineCourriel" value="' + esc(b.domaineCourriel || '') + '"></div>' +
+      '<div class="fr-input-group"><label class="fr-label" for="rg-jours">Alerte « projet à relancer » après (jours sans activité)</label>' +
+      '<input class="fr-input" type="number" min="1" id="rg-jours" data-reglage="joursAlerte" value="' + esc(b.joursAlerte || 60) + '"></div>' +
+      '</section></div>' +
+      '<ul class="fr-btns-group fr-btns-group--inline-md"><li><button type="button" class="fr-btn" data-action="enregistrer-reglages">Enregistrer les réglages</button></li>' +
+      '<li><button type="button" class="fr-btn fr-btn--secondary" data-action="annuler-reglages">Annuler les modifications</button></li></ul>';
+    return h;
+  }
+
+  function monterReglages() {
+    var z = document.getElementById('sp-reglages-page');
+    if (!z || !window.PageEditeur) return;
+    brouillonReglages.page = brouillonReglages.page || { marque: '', titre: 'Suivi des projets', pied: { accessibilite: '' } };
+    window.PageEditeur.monter(z, brouillonReglages.page, function () {});
+  }
+
+  function enregistrerReglages() {
+    var b = brouillonReglages;
+    LISTES_REGLABLES.forEach(function (l) {
+      var champ = document.getElementById('rg-' + l[0]);
+      if (!champ) return;
+      var valeurs = champ.value.split('\n').map(function (x) { return x.trim(); }).filter(Boolean);
+      var defaut = DEFAUTS[l[0]];
+      if (valeurs.join('|') === defaut.join('|')) delete b.listes[l[0]]; else b.listes[l[0]] = valeurs;
+    });
+    b.majLe = new Date().toISOString();
+    var actions = [];
+    if (!meta.colConfig) actions.push(['AddColumn', 'Projets', NOM_COLONNE_CONFIG, { type: 'Text', label: NOM_COLONNE_CONFIG }]);
+    actions.push(['ModifyColumn', 'Projets', NOM_COLONNE_CONFIG, { description: JSON.stringify(b) }]);
+    // Listes de choix des colonnes Grist alignées sur les réglages.
+    LISTES_REGLABLES.forEach(function (l) {
+      if (!b.listes[l[0]]) return;
+      var table = meta.tables.filter(function (t) { return t.tableId === l[2]; })[0];
+      var col = table && meta.colonnes.filter(function (c) { return c.parentId === table.id && c.colId === l[3]; })[0];
+      if (!col || !/^Choice/.test(col.type)) return;
+      var opts = {};
+      try { opts = JSON.parse(col.widgetOptions || '{}'); } catch (e) { opts = {}; }
+      opts.choices = b.listes[l[0]];
+      actions.push(['ModifyColumn', l[2], l[3], { widgetOptions: JSON.stringify(opts) }]);
+    });
+    return grist.docApi.applyUserActions(actions).then(function () {
+      meta.colConfig = true;
+      appliquerReglages(b);
+      brouillonReglages = null;
+      etat.alerte = { type: 'success', texte: 'Réglages enregistrés.' };
+      rendre();
+    }).catch(function (err) {
+      etat.alerte = { type: 'error', texte: 'Enregistrement impossible : seuls les propriétaires du document peuvent modifier les réglages. (' + ((err && err.message) || err) + ')' };
+      rendre();
+    });
   }
 
   function piedContact(r) {
@@ -1385,6 +1538,8 @@
     var el = e.target.closest('[data-action]');
     if (!el) return;
     var a = el.getAttribute('data-action');
+    if (a === 'enregistrer-reglages') { enregistrerReglages(); return; }
+    if (a === 'annuler-reglages') { brouillonReglages = null; etat.alerte = null; rendre(); return; }
     if (a === 'nouveau') { etat.form = null; etat.formCle = null; etat.alerte = null; aller('#/nouveau'); }
     else if (a === 'annuler-form') { etat.form = null; etat.formCle = null; etat.alerte = null; }
     else if (a === 'retirer') {
@@ -1445,6 +1600,31 @@
   }
 
   // Glisser-déposer des cartes de kanban
+  // Réglages : champs simples et couleurs des étiquettes.
+  app.addEventListener('input', function (e) {
+    var t = e.target;
+    if (!brouillonReglages) return;
+    if (t.hasAttribute('data-reglage')) {
+      var k = t.getAttribute('data-reglage');
+      brouillonReglages[k] = t.type === 'number' ? Number(t.value) : t.value;
+    }
+  });
+  app.addEventListener('change', function (e) {
+    var t = e.target;
+    if (!brouillonReglages || !t.hasAttribute('data-reglage-couleur')) return;
+    var g = t.getAttribute('data-reglage-couleur');
+    brouillonReglages.couleurs[g] = brouillonReglages.couleurs[g] || {};
+    brouillonReglages.couleurs[g][t.getAttribute('data-valeur')] = t.value;
+    rendre();
+  });
+  app.addEventListener('click', function (e) {
+    var b = e.target.closest('[data-reglage-couleur-defaut]');
+    if (!b || !brouillonReglages) return;
+    var g = b.getAttribute('data-reglage-couleur-defaut');
+    if (brouillonReglages.couleurs[g]) delete brouillonReglages.couleurs[g][b.getAttribute('data-valeur')];
+    rendre();
+  });
+
   app.addEventListener('dragstart', function (e) {
     var el = e.target.closest && e.target.closest('[data-drag]');
     if (!el) return;
