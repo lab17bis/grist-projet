@@ -66,4 +66,8 @@ Si le widget affiche le nombre de projets visibles, l'hébergement fonctionne.
 
 Grist, widget Grist, suivi de projets, gestion de projet, portefeuille de projets, pilotage, kanban, diagramme de Gantt, plan d'action, banque de projets, DSFR, Système de design de l'État, La Suite numérique, DINUM, Éducation nationale, académie de Reims, rectorat, innovation publique, transformation publique.
 
+## Licence
+
+Code sous licence MIT (voir `LICENSE`). Le DSFR embarqué dans `vendor/dsfr/` conserve sa propre licence. Réutilisation, adaptation et contributions bienvenues.
+
 Contact : Lab 17 bis, <lab17bis@ac-reims.fr>
