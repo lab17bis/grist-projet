@@ -566,7 +566,7 @@
       h += '</div>';
     });
     h += '</section><section><h2 class="fr-h5">Autres réglages</h2>' +
-      '<div class="fr-input-group"><label class="fr-label" for="rg-domaine">Domaine des adresses électroniques<span class="fr-hint-text">Sert à suggérer l\'adresse d\'un collègue (prénom.nom@domaine). Exemple : ac-reims.fr. Vide : pas de suggestion.</span></label>' +
+      '<div class="fr-input-group"><label class="fr-label" for="rg-domaine">Domaine des adresses électroniques<span class="fr-hint-text">Sert à suggérer l\'adresse d\'un collègue (prénom.nom@domaine). Exemple : mon-administration.fr. Vide : pas de suggestion.</span></label>' +
       '<input class="fr-input" id="rg-domaine" data-reglage="domaineCourriel" value="' + esc(b.domaineCourriel || '') + '"></div>' +
       '<div class="fr-input-group"><label class="fr-label" for="rg-jours">Alerte « projet à relancer » après (jours sans activité)</label>' +
       '<input class="fr-input" type="number" min="1" id="rg-jours" data-reglage="joursAlerte" value="' + esc(b.joursAlerte || 60) + '"></div>' +

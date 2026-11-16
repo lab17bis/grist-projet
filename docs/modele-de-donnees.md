@@ -6,7 +6,7 @@ Le widget s'appuie sur un document Grist qui contient les tables suivantes.
 |---|---|
 | `Structures` | Arborescence des sites, directions, divisions, bureaux et services. |
 | `Personnes` | Annuaire : nom, structure de rattachement. L'email est calculé : saisi par un administrateur (`Email_saisi`) ou repris du compte rattaché. |
-| `Parametres` | Réglages modifiables par l'administrateur : `Contact_admin`. |
+| `Parametres` | Réglages modifiables par l'administrateur : `Contact_admin`, `Domaine_courriel` (recopié depuis l'écran Réglages du widget). |
 | `Comptes` | Une ligne par personne qui a ouvert le suivi. Grist y inscrit lui-même l'email du compte connecté. `Profil` relie le compte à sa ligne de l'annuaire. |
 | `Projets` | Fiche projet : structure porteuse, porteurs, équipe, mission confiée, phase, état, visibilité, échéance. |
 | `Actions` | Plan d'action du projet : intitulé, responsable, début, fin, état. Sert au kanban, à la liste et au Gantt. |
@@ -15,6 +15,7 @@ Le widget s'appuie sur un document Grist qui contient les tables suivantes.
 
 ## Valeurs de référence
 
+- Valeurs par défaut, modifiables dans l'écran *Réglages du suivi* du widget.
 - **Phase** : Idée, Cadrage, Construction, Expérimentation, Déploiement, Bilan, Clos.
 - **État** : En cours, En pause, Bloqué, Terminé, Abandonné.
 - **Visibilité** : Académique (par défaut) ou Restreint.
@@ -36,7 +37,7 @@ Le widget s'appuie sur un document Grist qui contient les tables suivantes.
 - Les emails sont visibles par toutes les personnes qui ont accès au suivi.
 - « Ce n'est pas moi » sur une fiche : un porteur se retire (s'il reste un autre porteur) ; un membre de l'équipe laisse un signalement au journal.
 - La table `Parametres` contient l'adresse de contact de l'administrateur (`Contact_admin`), affichée en bas du widget.
-- La page Grist « Profils à vérifier » liste les profils sans email, hors académie, en double ou jamais connectés depuis 30 jours.
+- La page Grist « Profils à vérifier » liste les profils sans email, en double, hors du domaine réglé (Parametres › Domaine_courriel) ou jamais connectés depuis 30 jours.
 - Les règles d'accès comparent les emails en minuscules des deux côtés (`user.Email.lower()`).
 
 Un projet **restreint** n'est visible que par ses porteurs, son équipe, la personne qui a confié la mission et les administrateurs.
