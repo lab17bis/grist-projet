@@ -1,5 +1,5 @@
 /*
- * Suivi des projets – widget Grist au DSFR (Lab 17 bis).
+ * grist-projet – espace d'équipe pour gérer des projets, widget-outil Grist au DSFR.
  *
  * Le widget lit et écrit dans le document Grist avec les droits de la personne
  * connectée. Il ne contourne aucune règle d'accès : si Grist refuse une écriture,
@@ -17,12 +17,11 @@
 
   var PHASES = ['Idée', 'Cadrage', 'Construction', 'Expérimentation', 'Déploiement', 'Bilan', 'Clos'];
   var ETATS = ['En cours', 'En pause', 'Bloqué', 'Terminé', 'Abandonné'];
-  var ORIGINES = ['Initiative de la structure', 'Commande de la hiérarchie', 'Feuille de route académique',
+  var ORIGINES = ['Initiative de la structure', 'Commande de la hiérarchie', "Feuille de route de l'organisation",
     'Plan ou réforme nationale', 'Appel à projets', "Demande d'un partenaire", 'Autre'];
-  var THEMATIQUES = ['Pédagogie', "Parcours et vie de l'élève", 'Orientation', 'Inclusion', 'Examens et concours',
-    'Ressources humaines', 'Formation', 'Qualité de vie au travail', 'Numérique', 'Communication', 'Pilotage',
-    'Moyens et finances', 'Bâti et immobilier', "Relation à l'usager", 'Modernisation et transformation',
-    'Partenariats', 'Sécurité', 'Transition écologique', 'Autre'];
+  var THEMATIQUES = ['Organisation', 'Ressources humaines', 'Formation', 'Qualité de vie au travail', 'Numérique',
+    'Données', 'Communication', 'Pilotage', 'Moyens et finances', 'Immobilier', "Relation à l'usager", 'Inclusion',
+    'Transformation', 'Partenariats', 'Sécurité', 'Transition écologique', 'Autre'];
   var ETATS_ACTION = ['À faire', 'En cours', 'Fait', 'Abandonné'];
   var TYPES_JOURNAL = ['Avancement', 'Décision', 'Difficulté', 'Information'];
   var TYPES_DOCUMENT = ['Note de cadrage', 'Lettre de mission', 'Compte rendu', 'Livrable', 'Présentation', 'Autre'];
@@ -494,6 +493,7 @@
     if (h === 'nouveau') return { vue: 'form', id: null };
     if (h === 'pilotage') return { vue: 'pilotage' };
     if (h === 'profil') return { vue: 'profil' };
+    if (h === 'travail') return { vue: 'travail' };
     if (h === 'reglages') return { vue: 'reglages' };
     if ((m = h.match(/^projet\/(\d+)\/modifier$/))) return { vue: 'form', id: +m[1] };
     if ((m = h.match(/^projet\/(\d+)$/))) return { vue: 'fiche', id: +m[1] };
@@ -515,6 +515,7 @@
     else if (r.vue === 'form') html = vueFormulaire(r.id);
     else if (r.vue === 'pilotage') html = vuePilotage();
     else if (r.vue === 'profil') html = vueProfil();
+    else if (r.vue === 'travail') html = vueTravail();
     else if (r.vue === 'reglages') html = vueReglages();
     else html = vueBanque();
     app.innerHTML = html + piedContact(r);
@@ -968,7 +969,9 @@
   // --- Composants partagés : navigation, sélecteur de mode, kanban, calendrier --
 
   function navigation(active) {
-    var liens = [['banque', '#/', 'Banque des projets'], ['pilotage', '#/pilotage', "Vue d'ensemble"]];
+    var liens = [['banque', '#/', 'Banque des projets']];
+    if (etat.moi.profil) liens.push(['travail', '#/travail', 'Mon travail']);
+    liens.push(['pilotage', '#/pilotage', "Vue d'ensemble"]);
     if (etat.moi.email && !etat.moi.lecture) {
       liens.push(['profil', '#/profil', etat.moi.profil ? 'Mon profil : ' + nomPersonne(etat.moi.profil) : 'Mon profil']);
     }
@@ -1025,6 +1028,65 @@
   }
 
   // --- Mon profil -----------------------------------------------------------
+
+  // --- Mon travail : actions confiées, projets suivis, activité récente -------
+
+  function vueTravail() {
+    var moi = etat.moi.profil;
+    var html = navigation('travail') + blocAlerte() + '<h1 class="fr-h3">Mon travail</h1>';
+    if (!moi) return html + '<p><a href="#/profil">Créez votre profil</a> pour retrouver ici les actions qui vous sont confiées.</p>';
+    var fini = ETATS_ACTION.slice(-2);
+    var auj = aujourdhuiSec(), semaine = auj + 7 * 86400;
+    var actions = (data.Actions || []).filter(function (a) {
+      var p = idx.Projets[num(a.Projet)];
+      return num(a.Responsable) === moi && fini.indexOf(a.Etat) === -1 && p && !p.Archive;
+    });
+    var groupes = [
+      ['En retard', function (a) { return a.Fin && a.Fin < auj; }, 'error'],
+      ['Dans les 7 jours', function (a) { return a.Fin && a.Fin >= auj && a.Fin < semaine; }, 'warning'],
+      ['Plus tard', function (a) { return a.Fin && a.Fin >= semaine; }, 'info'],
+      ['Sans date de fin', function (a) { return !a.Fin; }, '']
+    ];
+    html += '<section class="sp-bloc"><h2 class="fr-h5">Actions qui me sont confiées (' + actions.length + ')</h2>';
+    if (!actions.length) html += '<p class="sp-vide">Aucune action en cours ne vous est confiée.</p>';
+    groupes.forEach(function (g) {
+      var l = actions.filter(g[1]).sort(function (a, c) { return (a.Fin || 9e12) - (c.Fin || 9e12); });
+      if (!l.length) return;
+      html += '<h3 class="fr-h6 fr-mt-3w">' + badge(g[0] + ' (' + l.length + ')', g[2]) + '</h3>' +
+        '<div class="sp-defile"><table class="sp-table"><thead><tr><th>Action</th><th>Projet</th><th>Période</th><th>État</th></tr></thead><tbody>' +
+        l.map(function (a) {
+          var p = idx.Projets[num(a.Projet)];
+          return '<tr><td>' + esc(a.Intitule) + '</td><td><a href="#/projet/' + p.id + '">' + esc(p.Titre) + '</a></td>' +
+            '<td>' + esc(periodeTexte(a.Debut, a.Fin)) + '</td>' +
+            '<td><label class="fr-sr-only" for="mt-' + a.id + '">État de l\'action</label><select class="fr-select" id="mt-' + a.id + '" data-etat-action="' + a.id + '">' +
+            ETATS_ACTION.map(function (e) { return '<option' + (e === (a.Etat || ETATS_ACTION[0]) ? ' selected' : '') + '>' + esc(e) + '</option>'; }).join('') + '</select></td></tr>';
+        }).join('') + '</tbody></table></div>';
+    });
+    html += '</section>';
+
+    var projets = mesProjets().sort(function (a, c) { return (c.Maj_le || 0) - (a.Maj_le || 0); });
+    html += '<section class="sp-bloc"><h2 class="fr-h5">Mes projets (' + projets.length + ')</h2>';
+    if (!projets.length) html += '<p class="sp-vide">Vous n\'êtes porteur ou membre d\'aucun projet en cours.</p>';
+    else html += '<ul class="sp-liste-simple">' + projets.map(function (p) {
+      var ouvertes = actionsDu(p.id).filter(function (a) { return fini.indexOf(a.Etat) === -1; }).length;
+      return '<li><a href="#/projet/' + p.id + '">' + esc(p.Titre) + '</a> ' + badge(p.Phase, COULEUR_PHASE[p.Phase], true) + ' ' + badge(p.Etat, COULEUR_ETAT[p.Etat], true) +
+        ' <span class="fr-text--xs">' + esc(monRole(p)) + ' · ' + ouvertes + ' action' + (ouvertes > 1 ? 's' : '') + ' ouverte' + (ouvertes > 1 ? 's' : '') + '</span></li>';
+    }).join('') + '</ul>';
+    html += '</section>';
+
+    var ids = projets.map(function (p) { return p.id; });
+    var recents = (data.Journal || []).filter(function (j) { return ids.indexOf(num(j.Projet)) !== -1 && (j.Cree_le || 0) > auj - 30 * 86400; })
+      .sort(function (a, c) { return (c.Cree_le || 0) - (a.Cree_le || 0); }).slice(0, 15);
+    html += '<section class="sp-bloc"><h2 class="fr-h5">Activité récente dans mes projets</h2>';
+    if (!recents.length) html += '<p class="sp-vide">Aucun message au journal de vos projets depuis 30 jours.</p>';
+    else html += '<ol class="sp-journal">' + recents.map(function (j) {
+      var p = idx.Projets[num(j.Projet)];
+      return '<li><p class="sp-journal__meta">' + badge(j.Type, COULEUR_JOURNAL[j.Type]) + ' ' + esc(dateHeureTexte(j.Cree_le)) +
+        (j.Auteur ? ' · ' + esc(j.Auteur) : '') + ' · <a href="#/projet/' + p.id + '">' + esc(p.Titre) + '</a></p>' +
+        '<p class="sp-texte fr-mb-1v">' + esc(j.Message) + '</p></li>';
+    }).join('') + '</ol>';
+    return html + '</section>';
+  }
 
   function vueProfil() {
     var m = etat.moi;
@@ -1348,12 +1410,12 @@
       Phase: p.Phase || 'Idée', Etat: p.Etat || 'En cours', Origine: p.Origine || '',
       Commanditaire: num(p.Commanditaire) || '', Mission: p.Mission || '', Objectifs: p.Objectifs || '',
       Thematiques: liste(p.Thematiques), Date_debut: dateVersSaisie(p.Date_debut), Echeance: dateVersSaisie(p.Echeance),
-      Visibilite: p.Visibilite || 'Académique'
+      Visibilite: p.Visibilite === 'Restreint' ? 'Restreint' : 'Ouvert'
     } : {
       Titre: '', Resume: '', Structure_porteuse: num(etat.moi.profil && idx.Personnes[etat.moi.profil].Structure) || '',
       Porteurs: etat.moi.profil ? [etat.moi.profil] : [], Equipe: [], Structures_associees: [],
       Phase: 'Idée', Etat: 'En cours', Origine: '', Commanditaire: '', Mission: '', Objectifs: '',
-      Thematiques: [], Date_debut: '', Echeance: '', Visibilite: 'Académique'
+      Thematiques: [], Date_debut: '', Echeance: '', Visibilite: 'Ouvert'
     };
   }
 
@@ -1496,8 +1558,8 @@
       }).join('') + '</fieldset>' +
 
       '<fieldset class="fr-fieldset"><legend class="fr-fieldset__legend fr-h5">Visibilité</legend>' +
-      ['Académique', 'Restreint'].map(function (v) {
-        var aide = v === 'Académique' ? 'Visible par tous les agents qui ont accès au suivi.' : "Visible seulement par les porteurs, l'équipe, la personne qui a confié la mission et les administrateurs.";
+      ['Ouvert', 'Restreint'].map(function (v) {
+        var aide = v === 'Ouvert' ? "Visible par toutes les personnes qui ont accès à l'espace." : "Visible seulement par les porteurs, l'équipe, la personne qui a confié la mission et les administrateurs.";
         return '<div class="fr-fieldset__element"><div class="fr-radio-group"><input type="radio" id="v-' + v + '" name="p-visibilite" value="' + v + '" data-champ-form="Visibilite"' +
           (f.Visibilite === v ? ' checked' : '') + '><label class="fr-label" for="v-' + v + '">' + v + '<span class="fr-hint-text">' + aide + '</span></label></div></div>';
       }).join('') + '</fieldset>' +

@@ -289,3 +289,8 @@ body {
 .sp-reglages__couleur { display: flex; align-items: center; gap: .5rem; }
 .sp-reglages__couleur .fr-badge { margin: 0; }
 .sp-reglages__couleur input[type="color"] { width: 2.5rem; height: 2rem; padding: 0; border: 1px solid var(--border-default-grey); }
+
+/* Mon travail */
+.sp-liste-simple { list-style: none; padding: 0; margin: 0; }
+.sp-liste-simple li { padding: 0.5rem 0; border-bottom: 1px solid var(--border-default-grey); }
+.sp-liste-simple li:last-child { border-bottom: 0; }

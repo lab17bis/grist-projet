@@ -1,31 +1,32 @@
-# grist-suivi-projets
+# grist-projet
 
-> **Widget-outil pour Grist, clé en main.** Il ajoute à un document Grist une application complète de suivi de projets au Système de design de l'État (DSFR) : banque des projets, fiche projet, plan d'action en kanban, liste ou calendrier, journal, documents, vue d'ensemble pour l'encadrement.
+> **Widget-outil pour Grist, clé en main.** Il transforme un document Grist en espace d'équipe pour gérer des projets ensemble, au Système de design de l'État (DSFR) : base des projets de l'équipe, page de chaque projet (plan d'action en kanban, liste ou calendrier, journal, documents), travail de chacun, vue d'ensemble pour l'encadrement.
 
 Tout se règle dans Grist, sans toucher au code : en-tête et pied de page, listes de valeurs (phases, états, origines, thématiques…), couleurs des étiquettes, délai d'alerte. Le dépôt ne contient que le code : aucune donnée, aucun projet réel.
 
 ## À quoi ça sert
 
-Dans une organisation, beaucoup de projets avancent sans qu'on sache qui porte quoi ni où ils en sont. L'outil répond à trois besoins :
+Un document Grist devient l'**espace commun d'une équipe** (un service, une direction, un réseau, un groupe de travail). On y crée des projets, on les partage, on y travaille à plusieurs. L'espace sert à la fois de base de projets (qui porte quoi, où en est chaque projet) et d'outil de travail au quotidien. Il répond à quatre besoins :
 
 | Pour qui | Ce que l'outil permet |
 | --- | --- |
-| **Porteurs et équipes projet** | Déclarer un projet, le mettre à jour, tenir un plan d'action (kanban, liste ou calendrier), un journal et une liste de documents, sans reporting imposé |
+| **Porteurs et équipes projet** | Créer un projet, le mettre à jour, tenir un plan d'action (kanban, liste ou calendrier), un journal et une liste de documents, sans reporting imposé |
+| **Chaque membre** | *Mon travail* : les actions qui lui sont confiées (en retard, dans les 7 jours, plus tard), ses projets, l'activité récente de ses projets |
 | **Encadrement** | Une vue d'ensemble : chiffres clés, projets à relancer, kanban des phases, calendrier, répartition par structure |
-| **Toutes les personnes ayant accès** | Une banque des projets consultable : qui porte quoi, où en est chaque projet. Elle sert aussi d'archive |
+| **Toutes les personnes de l'espace** | Une banque des projets consultable : qui porte quoi, où en est chaque projet. Elle sert aussi d'archive |
 
 - L'annuaire se construit à l'usage : une personne qui déclare un projet ou y est ajoutée rejoint l'annuaire.
 - Les droits (administrateur, contributeur, lecteur) sont appliqués par Grist, pas par le widget.
-- Un projet peut être marqué « Restreint » pour n'être visible que de son équipe.
+- Chaque projet est **ouvert** (visible par tout l'espace) ou **restreint** (visible seulement par ses porteurs, son équipe, la personne qui l'a confié et les administrateurs).
 
-Contrairement aux widgets de mise en page [grist-catalogue](https://github.com/lab17bis/grist-catalogue) et [grist-questionnaire](https://github.com/lab17bis/grist-questionnaire), cet outil ne produit pas de page publique : il s'utilise **dans Grist**, et chaque personne doit y être connectée.
+Contrairement aux widgets de mise en page [grist-catalogue](https://github.com/lab17bis/grist-catalogue), [grist-questionnaire](https://github.com/lab17bis/grist-questionnaire) et [grist-graphique](https://github.com/lab17bis/grist-graphique), cet outil ne produit pas de page publique : il s'utilise **dans Grist**, et chaque personne doit y être connectée. Le document Grist est l'espace : on y invite les membres de l'équipe.
 
-Démonstration avec des données fictives (rien n'est enregistré) : <https://lab17bis.github.io/grist-suivi-projets/suivi-projets/>
+Démonstration avec des données fictives (rien n'est enregistré) : <https://lab17bis.github.io/grist-projet/suivi-projets/>
 
 ## Le brancher en 5 minutes
 
-1. **Partir du modèle** : téléchargez [`modele/modele-grist-suivi-projets.grist`](modele/modele-grist-suivi-projets.grist), puis importez-le dans Grist (*Ajouter › Importer un document*). Il contient les tables vides, les formules, les règles d'accès et les pages, widget compris. L'outil attend ce modèle de données : partir d'un document vide demande de recréer les tables décrites dans [`docs/modele-de-donnees.md`](docs/modele-de-donnees.md).
-2. **Vérifier le widget** : la page *Interface* contient une vue *Personnalisée* sur la table `Projets`, avec l'adresse `https://lab17bis.github.io/grist-suivi-projets/suivi-projets/` et l'**accès complet au document**. L'interface lit les tables et écrit avec les droits de la personne connectée.
+1. **Partir du modèle** : téléchargez [`modele/modele-grist-projet.grist`](modele/modele-grist-projet.grist), puis importez-le dans Grist (*Ajouter › Importer un document*). Il contient les tables vides, les formules, les règles d'accès et les pages, widget compris. L'outil attend ce modèle de données : partir d'un document vide demande de recréer les tables décrites dans [`docs/modele-de-donnees.md`](docs/modele-de-donnees.md).
+2. **Vérifier le widget** : la page *Interface* contient une vue *Personnalisée* sur la table `Projets`, avec l'adresse `https://lab17bis.github.io/grist-projet/suivi-projets/` et l'**accès complet au document**. L'interface lit les tables et écrit avec les droits de la personne connectée.
 3. **Régler** : en bas du widget, ouvrez *Réglages du suivi*, puis enregistrez. À faire par un propriétaire du document : l'enregistrement modifie la structure des tables.
 4. **Inviter** les personnes dans le document (*Partager*), en éditeur pour les contributeurs, en lecteur pour la consultation.
 
@@ -50,7 +51,7 @@ Les réglages sont enregistrés en JSON dans la **description de la colonne `Con
 
 | Dossier ou fichier | Rôle |
 | --- | --- |
-| `suivi-projets/` | L'application : banque des projets, fiche projet, déclaration, vue d'ensemble, réglages |
+| `suivi-projets/` | L'application : banque des projets, fiche projet, mon travail, déclaration, vue d'ensemble, réglages |
 | `suivi-projets/commun/` | En-tête et pied de page configurables, communs aux outils `grist-*` |
 | `docs/modele-de-donnees.md` | Tables, valeurs de référence et règles d'accès attendues |
 | `donnees-fictives/` | Jeu d'exemple inventé, utilisé par la démonstration |
@@ -68,13 +69,13 @@ Les réglages sont enregistrés en JSON dans la **description de la colonne `Con
 ## Limites
 
 - Fonctionne uniquement dans Grist, avec des personnes connectées.
-- La valeur de visibilité par défaut s'appelle « Académique » : elle n'est pas encore réglable.
 - Aucun audit RGAA n'a été mené.
 
 ## Autres outils de la même famille
 
 - [grist-catalogue](https://github.com/lab17bis/grist-catalogue) : widget de mise en page pour Grist, catalogue public de fiches au DSFR.
 - [grist-questionnaire](https://github.com/lab17bis/grist-questionnaire) : widget de mise en page pour Grist, questionnaires au DSFR avec logique conditionnelle.
+- [grist-graphique](https://github.com/lab17bis/grist-graphique) : widget de mise en page pour Grist, tableaux de bord et graphiques au DSFR.
 
 Ils partagent les mêmes réglages d'en-tête et de pied de page.
 
@@ -86,7 +87,7 @@ Ils partagent les mêmes réglages d'en-tête et de pied de page.
 
 ## Mots-clés
 
-Grist, widget Grist, widget-outil, suivi de projets, gestion de projet, portefeuille de projets, pilotage, kanban, plan d'action, banque de projets, annuaire, DSFR, Système de design de l'État, La Suite numérique, DINUM, service public, administration, transformation publique, clé en main, logiciel libre.
+Grist, widget Grist, widget-outil, gestion de projet en équipe, espace d'équipe, travail collaboratif, suivi de projets, gestion de projet, portefeuille de projets, pilotage, kanban, plan d'action, banque de projets, annuaire, DSFR, Système de design de l'État, La Suite numérique, DINUM, service public, administration, transformation publique, clé en main, logiciel libre.
 
 ## Licence
 

@@ -108,7 +108,7 @@
       ],
       "Date_debut": "2026-09-01",
       "Echeance": "2027-06-30",
-      "Visibilite": "Académique",
+      "Visibilite": "Ouvert",
       "Maj_le": 1793000000
     },
     {
@@ -145,13 +145,13 @@
       ],
       "Phase": "Expérimentation",
       "Etat": "Bloqué",
-      "Origine": "Feuille de route académique",
+      "Origine": "Feuille de route de l'organisation",
       "Thematiques": [
         "Modernisation et transformation"
       ],
       "Date_debut": "2026-10-01",
       "Echeance": "2026-12-20",
-      "Visibilite": "Académique",
+      "Visibilite": "Ouvert",
       "Maj_le": 1794100000
     },
     {
@@ -170,7 +170,7 @@
         "Communication"
       ],
       "Echeance": "2026-06-30",
-      "Visibilite": "Académique",
+      "Visibilite": "Ouvert",
       "Maj_le": 1782000000
     }
   ],
@@ -208,6 +208,24 @@
       "Intitule": "Choisir la salle",
       "Responsable": 2,
       "Fin": "2026-10-20",
+      "Etat": "En cours"
+    },
+    {
+      "id": 5,
+      "Projet": 3,
+      "Intitule": "Relire le livret avec deux nouveaux arrivants",
+      "Responsable": 1,
+      "Debut": "2026-11-10",
+      "Fin": "2026-11-20",
+      "Etat": "À faire"
+    },
+    {
+      "id": 6,
+      "Projet": 3,
+      "Intitule": "Proposer une autre salle",
+      "Responsable": 1,
+      "Debut": "2026-11-01",
+      "Fin": "2026-11-12",
       "Etat": "En cours"
     }
   ],

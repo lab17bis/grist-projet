@@ -18,7 +18,7 @@ Le widget s'appuie sur un document Grist qui contient les tables suivantes.
 - Valeurs par défaut, modifiables dans l'écran *Réglages du suivi* du widget.
 - **Phase** : Idée, Cadrage, Construction, Expérimentation, Déploiement, Bilan, Clos.
 - **État** : En cours, En pause, Bloqué, Terminé, Abandonné.
-- **Visibilité** : Académique (par défaut) ou Restreint.
+- **Visibilité** : Ouvert (visible par tout l'espace, par défaut) ou Restreint.
 
 ## Droits (appliqués dans Grist, pas dans le widget)
 

@@ -1,4 +1,5 @@
 """Tests de bout en bout du widget suivi-projets (mode démo + mode Grist simulé)."""
+import os
 import json
 import sys
 from playwright.sync_api import sync_playwright
@@ -93,14 +94,19 @@ def dates_en_secondes(json_data):
 
 
 with sync_playwright() as p:
-    b = p.chromium.launch(args=["--no-sandbox"])
+    b = p.chromium.launch(args=["--no-sandbox"], executable_path=os.environ.get("CHROME") or None)
 
     # ------------------------------------------------------------------ mode démo
     pg = b.new_page(viewport={"width": 1280, "height": 900})
     suivre(pg, "démo")
+    pg.goto(BASE + "/suivi-projets/#/travail", wait_until="networkidle")
+    pg.wait_for_timeout(800)
+    ok("mon travail : titre", pg.locator("h1:has-text('Mon travail')").count() == 1)
+    ok("mon travail : sections", pg.locator("section.sp-bloc").count() == 3)
+    pg.screenshot(path=OUT + "mon-travail.png", full_page=True)
     pg.goto(BASE + "/suivi-projets/", wait_until="networkidle")
     pg.wait_for_timeout(800)
-    ok("banque : navigation avec « Mon profil »", pg.locator(".sp-nav a").count() == 3
+    ok("banque : navigation avec « Mon travail » et « Mon profil »", pg.locator(".sp-nav a").count() == 4
        and "Camille Exemple" in pg.locator(".sp-nav__profil").inner_text())
     ok("banque : cartes", pg.locator(".fr-card").count() >= 3, pg.locator(".fr-card").count())
     ok("contact : lien vers l'administrateur", pg.locator(".sp-contact a[href^='mailto:admin@exemple.fr']").count() == 1)
@@ -198,7 +204,7 @@ with sync_playwright() as p:
     pg.wait_for_timeout(200)
     ok("ajout personne : doublon signalé", pg.locator(".sp-nouvelle-personne .fr-alert--warning").count() == 1)
     pg.fill("#aj-nom-Porteurs", "NOUVELLE Personne")
-    ok("ajout personne : email proposé", pg.input_value("#aj-email-Porteurs") == "personne.nouvelle@ac-reims.fr", pg.input_value("#aj-email-Porteurs"))
+    ok("ajout personne : email proposé", pg.input_value("#aj-email-Porteurs") == "personne.nouvelle@exemple.fr", pg.input_value("#aj-email-Porteurs"))
     pg.click("button[data-action='creer-personne'][data-champ='Porteurs']")
     pg.wait_for_timeout(300)
     ok("ajout personne : créée et ajoutée aux porteurs",
