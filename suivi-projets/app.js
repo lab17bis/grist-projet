@@ -607,6 +607,13 @@
       opts.choices = b.listes[l[0]];
       actions.push(['ModifyColumn', l[2], l[3], { widgetOptions: JSON.stringify(opts) }]);
     });
+    // Le domaine est aussi recopié dans Parametres (Domaine_courriel), lu par la formule Personnes.A_verifier.
+    var ligneDomaine = (data.Parametres || []).filter(function (r) { return r.Cle === 'Domaine_courriel'; })[0];
+    var domaine = String(b.domaineCourriel || '').replace(/^@/, '').trim();
+    if (data.Parametres) {
+      if (ligneDomaine) actions.push(['UpdateRecord', 'Parametres', ligneDomaine.id, { Valeur: domaine }]);
+      else actions.push(['AddRecord', 'Parametres', null, { Cle: 'Domaine_courriel', Valeur: domaine }]);
+    }
     return grist.docApi.applyUserActions(actions).then(function () {
       meta.colConfig = true;
       appliquerReglages(b);
