@@ -1,8 +1,26 @@
-# projets
+# Suivi des projets de l'académie : widget Grist au DSFR
 
-Interface de suivi des projets de l'académie de Reims, conçue par le Lab 17 bis.
+**Recenser, suivre et piloter les projets d'une organisation publique dans Grist, avec une interface au Système de design de l'État (DSFR) : banque des projets, fiche projet, plan d'action en kanban, liste ou calendrier, vue d'ensemble pour l'encadrement.**
 
-L'interface prend la forme de **widgets personnalisés Grist** au **système de design de l'État (DSFR)**. Les données restent dans un document Grist sur l'instance `grist.numerique.gouv.fr`. Ce dépôt ne contient que l'interface.
+Conçu par le [Lab 17 bis](https://lab17bis.github.io/ressources/), laboratoire d'innovation publique de l'[académie de Reims](https://www.ac-reims.fr/), au sein de l'équipe Dynamique Modernisation et Transformation (DMT) du rectorat.
+
+> Les données restent dans un document Grist sur l'instance `grist.numerique.gouv.fr`. Ce dépôt ne contient que l'interface.
+
+## En bref
+
+Dans une académie, beaucoup de projets avancent sans qu'on sache qui porte quoi ni où ils en sont. Cet outil répond à trois besoins :
+
+| Pour qui | Ce que l'outil permet |
+| --- | --- |
+| **Porteurs et équipes projet** | Déclarer un projet, le mettre à jour, tenir un plan d'action (kanban, liste ou calendrier), un journal et une liste de documents, sans reporting imposé. |
+| **Encadrement** | Une vue d'ensemble : chiffres clés, projets à relancer, kanban des phases, calendrier, répartition par structure. |
+| **Tous les agents** | Une banque des projets consultable : qui porte quoi, où en est chaque projet. Elle sert aussi d'archive. |
+
+- L'annuaire se construit à l'usage : une personne qui déclare un projet ou y est ajoutée rejoint l'annuaire.
+- Les droits (administrateur, contributeur, lecteur) sont appliqués par Grist, pas par le widget.
+- Un projet peut être marqué « Restreint » pour n'être visible que de son équipe.
+
+Contrairement aux catalogues du Lab 17 bis, cet outil exige que chaque personne soit **connectée à Grist** : il s'utilise dans Grist, comme widget, et non comme page publique.
 
 ## Ce que contient ce dépôt
 
@@ -36,3 +54,16 @@ Ouverte directement dans un navigateur, hors de Grist, l'adresse affiche une dé
 4. Accorder l'accès **Lecture de la table** au widget.
 
 Si le widget affiche le nombre de projets visibles, l'hébergement fonctionne.
+
+## Écosystème
+
+- **[Grist](https://grist.numerique.gouv.fr)** : tableur-base de données libre ([gristlabs/grist-core](https://github.com/gristlabs/grist-core)), proposé aux agents de l'État par la [DINUM](https://www.numerique.gouv.fr/) dans [La Suite numérique](https://lasuite.numerique.gouv.fr/).
+- **[Système de design de l'État (DSFR)](https://www.systeme-de-design.gouv.fr/)** ([GouvernementFR/dsfr](https://github.com/GouvernementFR/dsfr)).
+- **[Communauté Grist francophone](https://forum.grist.libre.sh/)**.
+- Autres outils du Lab 17 bis : [catalogue de ressources et d'interventions](https://github.com/lab17bis/ressources), [questionnaires DSFR avec logique conditionnelle](https://github.com/lab17bis/questionnaires).
+
+## Mots-clés
+
+Grist, widget Grist, suivi de projets, gestion de projet, portefeuille de projets, pilotage, kanban, diagramme de Gantt, plan d'action, banque de projets, DSFR, Système de design de l'État, La Suite numérique, DINUM, Éducation nationale, académie de Reims, rectorat, innovation publique, transformation publique.
+
+Contact : Lab 17 bis, <lab17bis@ac-reims.fr>
