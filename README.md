@@ -1,4 +1,4 @@
-# lab17bis-projets
+# projets
 
 Interface de suivi des projets de l'académie de Reims, conçue par le Lab 17 bis.
 
@@ -23,7 +23,7 @@ Le widget n'affiche rien seul : il lit les données du document Grist dans leque
 ## Brancher l'interface
 
 1. Dans le document Grist, ajouter un widget **Personnalisé** sur la table `Projets`.
-2. Saisir l'adresse : `https://lab17bis.github.io/lab17bis-projets/suivi-projets/`.
+2. Saisir l'adresse : `https://lab17bis.github.io/projets/suivi-projets/`.
 3. Accorder l'accès **Accès complet au document** : l'interface lit les six tables et écrit avec les droits de la personne connectée.
 
 Ouverte directement dans un navigateur, hors de Grist, l'adresse affiche une démonstration avec les données fictives. Rien n'y est enregistré.
@@ -32,7 +32,7 @@ Ouverte directement dans un navigateur, hors de Grist, l'adresse affiche une dé
 
 1. Activer GitHub Pages sur ce dépôt (Settings › Pages › branche `main`, dossier `/`).
 2. Dans le document Grist, ajouter un widget **Personnalisé** sur la table `Projets`.
-3. Saisir l'adresse : `https://lab17bis.github.io/lab17bis-projets/widget-test/`.
+3. Saisir l'adresse : `https://lab17bis.github.io/projets/widget-test/`.
 4. Accorder l'accès **Lecture de la table** au widget.
 
 Si le widget affiche le nombre de projets visibles, l'hébergement fonctionne.
