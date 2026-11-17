@@ -215,6 +215,7 @@
         var projets = tables.filter(function (t) { return t.tableId === 'Projets'; })[0];
         meta.colonnes = cols;
         meta.tables = tables;
+        meta.lu = tables.length > 0;
         var c = projets && cols.filter(function (x) { return x.parentId === projets.id && x.colId === NOM_COLONNE_CONFIG; })[0];
         meta.colConfig = !!c;
         var r = {};
@@ -508,9 +509,123 @@
   // Rendu
   // ---------------------------------------------------------------------------
 
+
+  // ---------------------------------------------------------------------------
+  // Installation dans un document vide : tables, formules et règles d'accès
+  // ---------------------------------------------------------------------------
+  // Le schéma (suivi-projets/schema.json) est celui du modèle : tables, colonnes, formules,
+  // et règles d'accès qui protègent les projets « Restreint ».
+
+  // Sans métadonnées lisibles, on suppose l'outil installé (rien n'est proposé à tort).
+  function aTable(t) { return !meta.lu || (meta.tables || []).some(function (x) { return x.tableId === t; }); }
+
+  function vueInstallation() {
+    return '<h1 class="fr-h3">Installer l\'espace projets dans ce document</h1>' + blocAlerte() +
+      '<p>Le widget va créer ses tables (Projets, Actions, Journal, Documents, Personnes, Structures, Comptes, Parametres), leurs formules et les <strong>règles d\'accès</strong> qui protègent les projets restreints. Les tables existantes ne sont pas modifiées.</p>' +
+      '<p class="fr-text--sm">À faire par un propriétaire du document. Le widget doit avoir l\'accès complet au document. Si ce document a déjà des règles d\'accès, vérifiez-les ensuite dans <em>Permissions avancées</em>.</p>' +
+      '<ul class="fr-btns-group fr-btns-group--inline-md"><li><button type="button" class="fr-btn" data-installer="vide">Créer les tables</button></li>' +
+      '<li><button type="button" class="fr-btn fr-btn--secondary" data-installer="exemple">Créer les tables avec un exemple fictif</button></li></ul>';
+  }
+
+  function installer(exemple) {
+    var sch, ordre;
+    function metaFraiche() {
+      return Promise.all([grist.docApi.fetchTable('_grist_Tables'), grist.docApi.fetchTable('_grist_Tables_column')]).then(function (m) {
+        return { tables: lignesDepuisColonnes(m[0]), cols: lignesDepuisColonnes(m[1]) };
+      });
+    }
+    function opts(c) { return c.widgetOptions ? JSON.stringify(c.widgetOptions) : ''; }
+    function estRef(c) { return /^Ref(List)?:/.test(c.type); }
+    return fetch('schema.json').then(function (r) { return r.json(); }).then(function (j) {
+      sch = j; ordre = Object.keys(sch.tables).filter(function (t) { return !aTable(t); });
+      // 1. Tables avec leurs colonnes simples (ni référence, ni formule).
+      return grist.docApi.applyUserActions(ordre.map(function (t) {
+        return ['AddTable', t, sch.tables[t].filter(function (c) { return !estRef(c) && !c.isFormula; }).map(function (c) {
+          var o = { id: c.id, type: c.type, isFormula: false };
+          if (c.label) o.label = c.label;
+          if (c.formula) o.formula = c.formula;
+          if (c.widgetOptions) o.widgetOptions = opts(c);
+          return o;
+        })];
+      }));
+    }).then(function () {
+      // 2. Références, puis formules : toutes les tables existent désormais.
+      var a = [];
+      ordre.forEach(function (t) { sch.tables[t].filter(estRef).forEach(function (c) {
+        a.push(['AddColumn', t, c.id, { type: c.type, isFormula: !!c.isFormula, formula: c.formula || '', label: c.label || c.id, widgetOptions: opts(c) }]);
+      }); });
+      ordre.forEach(function (t) { sch.tables[t].filter(function (c) { return !estRef(c) && c.isFormula; }).forEach(function (c) {
+        a.push(['AddColumn', t, c.id, { type: c.type, isFormula: true, formula: c.formula || '', label: c.label || c.id, widgetOptions: opts(c) }]);
+      }); });
+      return a.length ? grist.docApi.applyUserActions(a) : null;
+    }).then(metaFraiche).then(function (m) {
+      // 3. Libellés affichés des références et dépendances des formules de déclenchement.
+      function col(t, c) { var tb = m.tables.filter(function (x) { return x.tableId === t; })[0]; return tb && m.cols.filter(function (x) { return x.parentId === tb.id && x.colId === c; })[0]; }
+      var a = [];
+      ordre.forEach(function (t) { sch.tables[t].forEach(function (c) {
+        var moi = col(t, c.id);
+        if (!moi) return;
+        if (c.visibleCol && estRef(c)) {
+          var cible = c.type.split(':')[1], v = col(cible, c.visibleCol);
+          if (v) { a.push(['ModifyColumn', t, c.id, { visibleCol: v.id }]); a.push(['SetDisplayFormula', t, null, moi.id, '$' + c.id + '.' + c.visibleCol]); }
+        }
+        if (c.recalcWhen || (c.recalcDeps && c.recalcDeps.length)) {
+          var deps = (c.recalcDeps || []).map(function (d) { var x = col(t, d); return x && x.id; }).filter(Boolean);
+          a.push(['ModifyColumn', t, c.id, { recalcWhen: c.recalcWhen || 0, recalcDeps: deps.length ? ['L'].concat(deps) : null }]);
+        }
+      }); });
+      return a.length ? grist.docApi.applyUserActions(a) : null;
+    }).then(function () {
+      // 4. Règles d'accès du modèle (seulement si le document n'en a pas pour ces tables).
+      return grist.docApi.fetchTable('_grist_ACLResources').then(function (x) {
+        var existantes = lignesDepuisColonnes(x);
+        if (existantes.some(function (r) { return ordre.indexOf(r.tableId) >= 0; })) return null;
+        var res = sch.acl.resources.filter(function (r) { return r.tableId; });
+        return grist.docApi.applyUserActions(res.map(function (r) { return ['AddRecord', '_grist_ACLResources', null, { tableId: r.tableId, colIds: r.colIds }]; })).then(function (ret) {
+          var carte = { 1: 1 };
+          res.forEach(function (r, i) { carte[r.id] = ret.retValues[i]; });
+          var regles = sch.acl.rules.filter(function (r) { return r.aclFormula || r.permissionsText || r.userAttributes; });
+          return grist.docApi.applyUserActions(regles.map(function (r) {
+            return ['AddRecord', '_grist_ACLRules', null, { resource: carte[r.resource] || 1, aclFormula: r.aclFormula || '', aclFormulaParsed: r.aclFormulaParsed || '',
+              permissionsText: r.permissionsText || '', rulePos: r.rulePos, memo: r.memo || '', userAttributes: r.userAttributes || '' }];
+          }));
+        });
+      });
+    }).then(function () {
+      if (!exemple) return null;
+      return fetch('../donnees-fictives/exemple.json').then(function (r) { return r.json(); }).then(function (ex) {
+        var a = [];
+        Object.keys(sch.tables).forEach(function (t) {
+          var lignes = ex[t]; if (!lignes || !lignes.length) return;
+          var modifiables = sch.tables[t].filter(function (c) { return !c.isFormula; }).map(function (c) { return c.id; });
+          var cles = []; lignes.forEach(function (l) { Object.keys(l).forEach(function (k) { if (k !== 'id' && modifiables.indexOf(k) >= 0 && cles.indexOf(k) < 0) cles.push(k); }); });
+          var cols = {};
+          cles.forEach(function (k) {
+            var type = (sch.tables[t].filter(function (c) { return c.id === k; })[0] || {}).type || '';
+            cols[k] = lignes.map(function (l) {
+              var v = l[k] === undefined ? null : l[k];
+              if (typeof v === 'string' && /^Date/.test(type)) v = saisieVersDate(v);
+              if (Array.isArray(v) && v[0] !== 'L') v = ['L'].concat(v);
+              return v;
+            });
+          });
+          a.push(['BulkAddRecord', t, lignes.map(function (l) { return l.id; }), cols]);
+        });
+        return grist.docApi.applyUserActions(a);
+      });
+    }).then(function () {
+      etat.alerte = { type: 'success', texte: 'Espace projets installé, avec ses règles d\'accès.' + (exemple ? ' L\'exemple fictif est chargé.' : '') + ' Créez maintenant votre profil.' };
+      return charger();
+    }).then(assurerCompte).then(function () { location.hash = '#/profil'; rendre(); }).catch(function (err) {
+      etat.alerte = { type: 'error', texte: 'Installation impossible ou incomplète : seuls les propriétaires du document peuvent créer des tables et des règles. (' + ((err && err.message) || err) + ')' };
+      rendre();
+    });
+  }
+
   function rendre() {
     var r = route();
     var html;
+    if (!DEMO && !aTable('Projets')) { app.innerHTML = vueInstallation(); return; }
     if (r.vue === 'fiche') html = vueFiche(r.id);
     else if (r.vue === 'form') html = vueFormulaire(r.id);
     else if (r.vue === 'pilotage') html = vuePilotage();
@@ -1604,6 +1719,8 @@
   // ---------------------------------------------------------------------------
 
   app.addEventListener('click', function (e) {
+    var inst = e.target.closest('[data-installer]');
+    if (inst) { inst.disabled = true; installer(inst.getAttribute('data-installer') === 'exemple'); return; }
     var el = e.target.closest('[data-action]');
     if (!el) return;
     var a = el.getAttribute('data-action');
@@ -1894,8 +2011,9 @@
     grist.onRecords(function () {
       clearTimeout(attente);
       attente = setTimeout(function () {
-        charger().then(assurerCompte).then(function () {
+        charger().then(function () { return aTable('Projets') ? assurerCompte() : null; }).then(function () {
           appliquerTheme();
+          if (!aTable('Projets')) { rendre(); return; }
           // Première visite sans profil : on propose de le créer.
           if (!etat.accueilVu && route().vue === 'banque' && profilManquant()) { etat.accueilVu = true; location.hash = '#/profil'; return; }
           etat.accueilVu = true;

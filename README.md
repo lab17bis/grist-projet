@@ -23,12 +23,14 @@ Contrairement aux widgets de mise en page [grist-catalogue](https://github.com/l
 
 Démonstration avec des données fictives (rien n'est enregistré) : <https://lab17bis.github.io/grist-projet/suivi-projets/>
 
-## Le brancher en 5 minutes
+## Le brancher en 3 minutes
 
-1. **Partir du modèle** : téléchargez [`modele/modele-grist-projet.grist`](modele/modele-grist-projet.grist), puis importez-le dans Grist (*Ajouter › Importer un document*). Il contient les tables vides, les formules, les règles d'accès et les pages, widget compris. L'outil attend ce modèle de données : partir d'un document vide demande de recréer les tables décrites dans [`docs/modele-de-donnees.md`](docs/modele-de-donnees.md).
-2. **Vérifier le widget** : la page *Interface* contient une vue *Personnalisée* sur la table `Projets`, avec l'adresse `https://lab17bis.github.io/grist-projet/suivi-projets/` et l'**accès complet au document**. L'interface lit les tables et écrit avec les droits de la personne connectée.
-3. **Régler** : en bas du widget, ouvrez *Réglages du suivi*, puis enregistrez. À faire par un propriétaire du document : l'enregistrement modifie la structure des tables.
+1. **Ajouter le widget** : dans un document Grist, même vide, ajoutez une page *Personnalisé* sur n'importe quelle table, avec l'adresse `https://lab17bis.github.io/grist-projet/suivi-projets/` et l'**accès complet au document**.
+2. **Installer** : le widget propose *Créer les tables*, ou *avec un exemple fictif*. Il crée les tables, leurs formules et les **règles d'accès** qui protègent les projets restreints (schéma : [`suivi-projets/schema.json`](suivi-projets/schema.json)). À faire par un propriétaire du document. Les tables existantes ne sont pas modifiées ; si le document a déjà des règles pour ces tables, elles ne sont pas remplacées.
+3. **Régler** : en bas du widget, ouvrez *Réglages du suivi*, puis enregistrez.
 4. **Inviter** les personnes dans le document (*Partager*), en éditeur pour les contributeurs, en lecteur pour la consultation.
+
+Pour plus de clarté, rattachez ensuite la vue personnalisée à la table `Projets` et supprimez la table de départ. Le modèle [`modele/modele-grist-projet.grist`](modele/modele-grist-projet.grist) reste disponible, pages comprises.
 
 ## Le régler
 
@@ -76,6 +78,8 @@ Les réglages sont enregistrés en JSON dans la **description de la colonne `Con
 - [grist-catalogue](https://github.com/lab17bis/grist-catalogue) : widget de mise en page pour Grist, catalogue public de fiches au DSFR.
 - [grist-questionnaire](https://github.com/lab17bis/grist-questionnaire) : widget de mise en page pour Grist, questionnaires au DSFR avec logique conditionnelle.
 - [grist-graphique](https://github.com/lab17bis/grist-graphique) : widget de mise en page pour Grist, tableaux de bord et graphiques au DSFR.
+- [grist-reunion](https://github.com/lab17bis/grist-reunion) : widget-outil pour Grist, ordre du jour, notes, décisions, actions et compte rendu de réunion.
+- [grist-management](https://github.com/lab17bis/grist-management) : widget-outil pour Grist, espace de management visuel qui assemble les autres outils.
 
 Ils partagent les mêmes réglages d'en-tête et de pied de page.
 
