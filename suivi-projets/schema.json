@@ -715,6 +715,7 @@
    {
     "resource": 1,
     "aclFormula": "",
+    "aclFormulaParsed": "",
     "permissionsText": "",
     "rulePos": null,
     "memo": "",
@@ -723,6 +724,7 @@
    {
     "resource": 4,
     "aclFormula": "user.Access not in [OWNER]",
+    "aclFormulaParsed": "[\"NotIn\", [\"Attr\", [\"Name\", \"user\"], \"Access\"], [\"List\", [\"Name\", \"OWNER\"]]]",
     "permissionsText": "-R",
     "rulePos": 1,
     "memo": "Colonnes techniques : administrateurs seulement",
@@ -731,6 +733,7 @@
    {
     "resource": 6,
     "aclFormula": "user.Access not in [OWNER]",
+    "aclFormulaParsed": "[\"NotIn\", [\"Attr\", [\"Name\", \"user\"], \"Access\"], [\"List\", [\"Name\", \"OWNER\"]]]",
     "permissionsText": "-R",
     "rulePos": 2,
     "memo": "Colonnes techniques : administrateurs seulement",
@@ -739,6 +742,7 @@
    {
     "resource": 8,
     "aclFormula": "user.Access not in [OWNER]",
+    "aclFormulaParsed": "[\"NotIn\", [\"Attr\", [\"Name\", \"user\"], \"Access\"], [\"List\", [\"Name\", \"OWNER\"]]]",
     "permissionsText": "-R",
     "rulePos": 3,
     "memo": "Colonnes techniques : administrateurs seulement",
@@ -747,6 +751,7 @@
    {
     "resource": 10,
     "aclFormula": "user.Access not in [OWNER]",
+    "aclFormulaParsed": "[\"NotIn\", [\"Attr\", [\"Name\", \"user\"], \"Access\"], [\"List\", [\"Name\", \"OWNER\"]]]",
     "permissionsText": "-R",
     "rulePos": 4,
     "memo": "Colonnes techniques : administrateurs seulement",
@@ -755,6 +760,7 @@
    {
     "resource": 13,
     "aclFormula": "user.Access in [OWNER]",
+    "aclFormulaParsed": "[\"In\", [\"Attr\", [\"Name\", \"user\"], \"Access\"], [\"List\", [\"Name\", \"OWNER\"]]]",
     "permissionsText": "+RU",
     "rulePos": 5,
     "memo": "Administrateur : voit et corrige les emails",
@@ -763,6 +769,7 @@
    {
     "resource": 3,
     "aclFormula": "user.Access in [OWNER]",
+    "aclFormulaParsed": "[\"In\", [\"Attr\", [\"Name\", \"user\"], \"Access\"], [\"List\", [\"Name\", \"OWNER\"]]]",
     "permissionsText": "+CRUDS",
     "rulePos": 6,
     "memo": "Administrateur : tout",
@@ -771,6 +778,7 @@
    {
     "resource": 3,
     "aclFormula": "user.Access in [EDITOR] and user.Email.lower() in rec.Acces",
+    "aclFormulaParsed": "[\"And\", [\"In\", [\"Attr\", [\"Name\", \"user\"], \"Access\"], [\"List\", [\"Name\", \"EDITOR\"]]], [\"In\", [\"Call\", [\"Attr\", [\"Attr\", [\"Name\", \"user\"], \"Email\"], \"lower\"]], [\"Attr\", [\"Name\", \"rec\"], \"Acces\"]]]",
     "permissionsText": "+RU",
     "rulePos": 7,
     "memo": "Co-porteurs et créateur : modifient leur projet",
@@ -779,6 +787,7 @@
    {
     "resource": 3,
     "aclFormula": "rec.Visibilite == \"Restreint\" and user.Email.lower() not in rec.Lecteurs",
+    "aclFormulaParsed": "[\"And\", [\"Eq\", [\"Attr\", [\"Name\", \"rec\"], \"Visibilite\"], [\"Const\", \"Restreint\"]], [\"NotIn\", [\"Call\", [\"Attr\", [\"Attr\", [\"Name\", \"user\"], \"Email\"], \"lower\"]], [\"Attr\", [\"Name\", \"rec\"], \"Lecteurs\"]]]",
     "permissionsText": "-CRUDS",
     "rulePos": 8,
     "memo": "Projet restreint : invisible hors porteurs, équipe et commanditaire",
@@ -787,6 +796,7 @@
    {
     "resource": 3,
     "aclFormula": "user.Access in [EDITOR]",
+    "aclFormulaParsed": "[\"In\", [\"Attr\", [\"Name\", \"user\"], \"Access\"], [\"List\", [\"Name\", \"EDITOR\"]]]",
     "permissionsText": "+RC",
     "rulePos": 9,
     "memo": "Contributeur : consulte tout, déclare un projet",
@@ -795,6 +805,7 @@
    {
     "resource": 3,
     "aclFormula": "user.Access in [VIEWER]",
+    "aclFormulaParsed": "[\"In\", [\"Attr\", [\"Name\", \"user\"], \"Access\"], [\"List\", [\"Name\", \"VIEWER\"]]]",
     "permissionsText": "+R",
     "rulePos": 10,
     "memo": "Lecteur : consulte",
@@ -803,6 +814,7 @@
    {
     "resource": 3,
     "aclFormula": "True",
+    "aclFormulaParsed": "[\"Const\", true]",
     "permissionsText": "-CRUDS",
     "rulePos": 11,
     "memo": "Par défaut : rien",
@@ -811,6 +823,7 @@
    {
     "resource": 5,
     "aclFormula": "user.Access in [OWNER]",
+    "aclFormulaParsed": "[\"In\", [\"Attr\", [\"Name\", \"user\"], \"Access\"], [\"List\", [\"Name\", \"OWNER\"]]]",
     "permissionsText": "+CRUDS",
     "rulePos": 12,
     "memo": "Administrateur : tout",
@@ -819,6 +832,7 @@
    {
     "resource": 5,
     "aclFormula": "user.Access in [EDITOR] and user.Email.lower() in rec.Acces",
+    "aclFormulaParsed": "[\"And\", [\"In\", [\"Attr\", [\"Name\", \"user\"], \"Access\"], [\"List\", [\"Name\", \"EDITOR\"]]], [\"In\", [\"Call\", [\"Attr\", [\"Attr\", [\"Name\", \"user\"], \"Email\"], \"lower\"]], [\"Attr\", [\"Name\", \"rec\"], \"Acces\"]]]",
     "permissionsText": "+CRUD",
     "rulePos": 13,
     "memo": "Co-porteurs : gèrent les éléments de leur projet",
@@ -827,6 +841,7 @@
    {
     "resource": 5,
     "aclFormula": "rec.Visibilite == \"Restreint\" and user.Email.lower() not in rec.Lecteurs",
+    "aclFormulaParsed": "[\"And\", [\"Eq\", [\"Attr\", [\"Name\", \"rec\"], \"Visibilite\"], [\"Const\", \"Restreint\"]], [\"NotIn\", [\"Call\", [\"Attr\", [\"Attr\", [\"Name\", \"user\"], \"Email\"], \"lower\"]], [\"Attr\", [\"Name\", \"rec\"], \"Lecteurs\"]]]",
     "permissionsText": "-CRUDS",
     "rulePos": 14,
     "memo": "Projet restreint : invisible",
@@ -835,6 +850,7 @@
    {
     "resource": 5,
     "aclFormula": "user.Access in [EDITOR, VIEWER]",
+    "aclFormulaParsed": "[\"In\", [\"Attr\", [\"Name\", \"user\"], \"Access\"], [\"List\", [\"Name\", \"EDITOR\"], [\"Name\", \"VIEWER\"]]]",
     "permissionsText": "+R",
     "rulePos": 15,
     "memo": "Consultation",
@@ -843,6 +859,7 @@
    {
     "resource": 5,
     "aclFormula": "True",
+    "aclFormulaParsed": "[\"Const\", true]",
     "permissionsText": "-CRUDS",
     "rulePos": 16,
     "memo": "Par défaut : rien",
@@ -851,6 +868,7 @@
    {
     "resource": 7,
     "aclFormula": "user.Access in [OWNER]",
+    "aclFormulaParsed": "[\"In\", [\"Attr\", [\"Name\", \"user\"], \"Access\"], [\"List\", [\"Name\", \"OWNER\"]]]",
     "permissionsText": "+CRUDS",
     "rulePos": 17,
     "memo": "Administrateur : tout",
@@ -859,6 +877,7 @@
    {
     "resource": 7,
     "aclFormula": "user.Access in [EDITOR] and user.Email.lower() in rec.Acces",
+    "aclFormulaParsed": "[\"And\", [\"In\", [\"Attr\", [\"Name\", \"user\"], \"Access\"], [\"List\", [\"Name\", \"EDITOR\"]]], [\"In\", [\"Call\", [\"Attr\", [\"Attr\", [\"Name\", \"user\"], \"Email\"], \"lower\"]], [\"Attr\", [\"Name\", \"rec\"], \"Acces\"]]]",
     "permissionsText": "+CRUD",
     "rulePos": 18,
     "memo": "Co-porteurs : gèrent les éléments de leur projet",
@@ -867,6 +886,7 @@
    {
     "resource": 7,
     "aclFormula": "rec.Visibilite == \"Restreint\" and user.Email.lower() not in rec.Lecteurs",
+    "aclFormulaParsed": "[\"And\", [\"Eq\", [\"Attr\", [\"Name\", \"rec\"], \"Visibilite\"], [\"Const\", \"Restreint\"]], [\"NotIn\", [\"Call\", [\"Attr\", [\"Attr\", [\"Name\", \"user\"], \"Email\"], \"lower\"]], [\"Attr\", [\"Name\", \"rec\"], \"Lecteurs\"]]]",
     "permissionsText": "-CRUDS",
     "rulePos": 19,
     "memo": "Projet restreint : invisible",
@@ -875,6 +895,7 @@
    {
     "resource": 7,
     "aclFormula": "user.Access in [EDITOR, VIEWER]",
+    "aclFormulaParsed": "[\"In\", [\"Attr\", [\"Name\", \"user\"], \"Access\"], [\"List\", [\"Name\", \"EDITOR\"], [\"Name\", \"VIEWER\"]]]",
     "permissionsText": "+R",
     "rulePos": 20,
     "memo": "Consultation",
@@ -883,6 +904,7 @@
    {
     "resource": 7,
     "aclFormula": "True",
+    "aclFormulaParsed": "[\"Const\", true]",
     "permissionsText": "-CRUDS",
     "rulePos": 21,
     "memo": "Par défaut : rien",
@@ -891,6 +913,7 @@
    {
     "resource": 9,
     "aclFormula": "user.Access in [OWNER]",
+    "aclFormulaParsed": "[\"In\", [\"Attr\", [\"Name\", \"user\"], \"Access\"], [\"List\", [\"Name\", \"OWNER\"]]]",
     "permissionsText": "+CRUDS",
     "rulePos": 22,
     "memo": "Administrateur : tout",
@@ -899,6 +922,7 @@
    {
     "resource": 9,
     "aclFormula": "user.Access in [EDITOR] and user.Email.lower() in rec.Acces",
+    "aclFormulaParsed": "[\"And\", [\"In\", [\"Attr\", [\"Name\", \"user\"], \"Access\"], [\"List\", [\"Name\", \"EDITOR\"]]], [\"In\", [\"Call\", [\"Attr\", [\"Attr\", [\"Name\", \"user\"], \"Email\"], \"lower\"]], [\"Attr\", [\"Name\", \"rec\"], \"Acces\"]]]",
     "permissionsText": "+CRUD",
     "rulePos": 23,
     "memo": "Co-porteurs : gèrent les éléments de leur projet",
@@ -907,6 +931,7 @@
    {
     "resource": 9,
     "aclFormula": "rec.Visibilite == \"Restreint\" and user.Email.lower() not in rec.Lecteurs",
+    "aclFormulaParsed": "[\"And\", [\"Eq\", [\"Attr\", [\"Name\", \"rec\"], \"Visibilite\"], [\"Const\", \"Restreint\"]], [\"NotIn\", [\"Call\", [\"Attr\", [\"Attr\", [\"Name\", \"user\"], \"Email\"], \"lower\"]], [\"Attr\", [\"Name\", \"rec\"], \"Lecteurs\"]]]",
     "permissionsText": "-CRUDS",
     "rulePos": 24,
     "memo": "Projet restreint : invisible",
@@ -915,6 +940,7 @@
    {
     "resource": 9,
     "aclFormula": "user.Access in [EDITOR, VIEWER]",
+    "aclFormulaParsed": "[\"In\", [\"Attr\", [\"Name\", \"user\"], \"Access\"], [\"List\", [\"Name\", \"EDITOR\"], [\"Name\", \"VIEWER\"]]]",
     "permissionsText": "+R",
     "rulePos": 25,
     "memo": "Consultation",
@@ -923,6 +949,7 @@
    {
     "resource": 9,
     "aclFormula": "True",
+    "aclFormulaParsed": "[\"Const\", true]",
     "permissionsText": "-CRUDS",
     "rulePos": 26,
     "memo": "Par défaut : rien",
@@ -931,6 +958,7 @@
    {
     "resource": 11,
     "aclFormula": "user.Access in [OWNER]",
+    "aclFormulaParsed": "[\"In\", [\"Attr\", [\"Name\", \"user\"], \"Access\"], [\"List\", [\"Name\", \"OWNER\"]]]",
     "permissionsText": "+CRUDS",
     "rulePos": 27,
     "memo": "Administrateur : gère le référentiel",
@@ -939,6 +967,7 @@
    {
     "resource": 11,
     "aclFormula": "user.Access in [EDITOR, VIEWER]",
+    "aclFormulaParsed": "[\"In\", [\"Attr\", [\"Name\", \"user\"], \"Access\"], [\"List\", [\"Name\", \"EDITOR\"], [\"Name\", \"VIEWER\"]]]",
     "permissionsText": "+R",
     "rulePos": 28,
     "memo": "Consultation",
@@ -947,6 +976,7 @@
    {
     "resource": 11,
     "aclFormula": "True",
+    "aclFormulaParsed": "[\"Const\", true]",
     "permissionsText": "-CRUDS",
     "rulePos": 29,
     "memo": "Par défaut : rien",
@@ -955,6 +985,7 @@
    {
     "resource": 12,
     "aclFormula": "user.Access in [OWNER]",
+    "aclFormulaParsed": "[\"In\", [\"Attr\", [\"Name\", \"user\"], \"Access\"], [\"List\", [\"Name\", \"OWNER\"]]]",
     "permissionsText": "+CRUDS",
     "rulePos": 30,
     "memo": "Administrateur : gère le référentiel",
@@ -963,6 +994,7 @@
    {
     "resource": 12,
     "aclFormula": "user.Access in [EDITOR, VIEWER]",
+    "aclFormulaParsed": "[\"In\", [\"Attr\", [\"Name\", \"user\"], \"Access\"], [\"List\", [\"Name\", \"EDITOR\"], [\"Name\", \"VIEWER\"]]]",
     "permissionsText": "+R",
     "rulePos": 31,
     "memo": "Consultation",
@@ -971,6 +1003,7 @@
    {
     "resource": 12,
     "aclFormula": "True",
+    "aclFormulaParsed": "[\"Const\", true]",
     "permissionsText": "-CRUDS",
     "rulePos": 32,
     "memo": "Par défaut : rien",
@@ -979,6 +1012,7 @@
    {
     "resource": 2,
     "aclFormula": "user.Access in [OWNER]",
+    "aclFormulaParsed": "[\"In\", [\"Attr\", [\"Name\", \"user\"], \"Access\"], [\"List\", [\"Name\", \"OWNER\"]]]",
     "permissionsText": "+CRUDS",
     "rulePos": 33,
     "memo": "Administrateur : tout",
@@ -987,6 +1021,7 @@
    {
     "resource": 2,
     "aclFormula": "True",
+    "aclFormulaParsed": "[\"Const\", true]",
     "permissionsText": "-CRUDS",
     "rulePos": 34,
     "memo": "Par défaut : rien",
@@ -995,6 +1030,7 @@
    {
     "resource": 5,
     "aclFormula": "user.Access in [EDITOR] and user.Email.lower() in rec.Contributeurs and rec.Cree_par == user.Email.lower()",
+    "aclFormulaParsed": "[\"And\", [\"In\", [\"Attr\", [\"Name\", \"user\"], \"Access\"], [\"List\", [\"Name\", \"EDITOR\"]]], [\"In\", [\"Call\", [\"Attr\", [\"Attr\", [\"Name\", \"user\"], \"Email\"], \"lower\"]], [\"Attr\", [\"Name\", \"rec\"], \"Contributeurs\"]], [\"Eq\", [\"Attr\", [\"Name\", \"rec\"], \"Cree_par\"], [\"Call\", [\"Attr\", [\"Attr\", [\"Name\", \"user\"], \"Email\"], \"lower\"]]]]",
     "permissionsText": "+CRUD",
     "rulePos": 13.5,
     "memo": "Équipe : gère ce qu'elle a créé",
@@ -1003,6 +1039,7 @@
    {
     "resource": 5,
     "aclFormula": "user.Access in [EDITOR] and user.Email.lower() in rec.Contributeurs",
+    "aclFormulaParsed": "[\"And\", [\"In\", [\"Attr\", [\"Name\", \"user\"], \"Access\"], [\"List\", [\"Name\", \"EDITOR\"]]], [\"In\", [\"Call\", [\"Attr\", [\"Attr\", [\"Name\", \"user\"], \"Email\"], \"lower\"]], [\"Attr\", [\"Name\", \"rec\"], \"Contributeurs\"]]]",
     "permissionsText": "+CRU",
     "rulePos": 13.75,
     "memo": "Équipe : ajoute et met à jour, sans supprimer le travail des autres",
@@ -1011,6 +1048,7 @@
    {
     "resource": 7,
     "aclFormula": "user.Access in [EDITOR] and user.Email.lower() in rec.Contributeurs and rec.Cree_par == user.Email.lower()",
+    "aclFormulaParsed": "[\"And\", [\"In\", [\"Attr\", [\"Name\", \"user\"], \"Access\"], [\"List\", [\"Name\", \"EDITOR\"]]], [\"In\", [\"Call\", [\"Attr\", [\"Attr\", [\"Name\", \"user\"], \"Email\"], \"lower\"]], [\"Attr\", [\"Name\", \"rec\"], \"Contributeurs\"]], [\"Eq\", [\"Attr\", [\"Name\", \"rec\"], \"Cree_par\"], [\"Call\", [\"Attr\", [\"Attr\", [\"Name\", \"user\"], \"Email\"], \"lower\"]]]]",
     "permissionsText": "+CRUD",
     "rulePos": 18.5,
     "memo": "Équipe : gère ce qu'elle a créé",
@@ -1019,6 +1057,7 @@
    {
     "resource": 7,
     "aclFormula": "user.Access in [EDITOR] and user.Email.lower() in rec.Contributeurs",
+    "aclFormulaParsed": "[\"And\", [\"In\", [\"Attr\", [\"Name\", \"user\"], \"Access\"], [\"List\", [\"Name\", \"EDITOR\"]]], [\"In\", [\"Call\", [\"Attr\", [\"Attr\", [\"Name\", \"user\"], \"Email\"], \"lower\"]], [\"Attr\", [\"Name\", \"rec\"], \"Contributeurs\"]]]",
     "permissionsText": "+CRU",
     "rulePos": 18.75,
     "memo": "Équipe : ajoute et met à jour, sans supprimer le travail des autres",
@@ -1027,6 +1066,7 @@
    {
     "resource": 9,
     "aclFormula": "user.Access in [EDITOR] and user.Email.lower() in rec.Contributeurs and rec.Cree_par == user.Email.lower()",
+    "aclFormulaParsed": "[\"And\", [\"In\", [\"Attr\", [\"Name\", \"user\"], \"Access\"], [\"List\", [\"Name\", \"EDITOR\"]]], [\"In\", [\"Call\", [\"Attr\", [\"Attr\", [\"Name\", \"user\"], \"Email\"], \"lower\"]], [\"Attr\", [\"Name\", \"rec\"], \"Contributeurs\"]], [\"Eq\", [\"Attr\", [\"Name\", \"rec\"], \"Cree_par\"], [\"Call\", [\"Attr\", [\"Attr\", [\"Name\", \"user\"], \"Email\"], \"lower\"]]]]",
     "permissionsText": "+CRUD",
     "rulePos": 23.5,
     "memo": "Équipe : gère ce qu'elle a créé",
@@ -1035,6 +1075,7 @@
    {
     "resource": 9,
     "aclFormula": "user.Access in [EDITOR] and user.Email.lower() in rec.Contributeurs",
+    "aclFormulaParsed": "[\"And\", [\"In\", [\"Attr\", [\"Name\", \"user\"], \"Access\"], [\"List\", [\"Name\", \"EDITOR\"]]], [\"In\", [\"Call\", [\"Attr\", [\"Attr\", [\"Name\", \"user\"], \"Email\"], \"lower\"]], [\"Attr\", [\"Name\", \"rec\"], \"Contributeurs\"]]]",
     "permissionsText": "+CRU",
     "rulePos": 23.75,
     "memo": "Équipe : ajoute et met à jour, sans supprimer le travail des autres",
@@ -1043,6 +1084,7 @@
    {
     "resource": 13,
     "aclFormula": "user.Access in [EDITOR] and rec.Cree_par == user.Email.lower() and not rec.Connecte",
+    "aclFormulaParsed": "[\"And\", [\"In\", [\"Attr\", [\"Name\", \"user\"], \"Access\"], [\"List\", [\"Name\", \"EDITOR\"]]], [\"Eq\", [\"Attr\", [\"Name\", \"rec\"], \"Cree_par\"], [\"Call\", [\"Attr\", [\"Attr\", [\"Name\", \"user\"], \"Email\"], \"lower\"]]], [\"Not\", [\"Attr\", [\"Name\", \"rec\"], \"Connecte\"]]]",
     "permissionsText": "+RU",
     "rulePos": 5.5,
     "memo": "Le créateur corrige l’email tant que la personne ne s’est pas connectée",
@@ -1051,6 +1093,7 @@
    {
     "resource": 13,
     "aclFormula": "user.Access in [EDITOR, VIEWER]",
+    "aclFormulaParsed": "[\"In\", [\"Attr\", [\"Name\", \"user\"], \"Access\"], [\"List\", [\"Name\", \"EDITOR\"], [\"Name\", \"VIEWER\"]]]",
     "permissionsText": "+R-U",
     "rulePos": 5.75,
     "memo": "Emails visibles par les agents qui ont accès au suivi",
@@ -1059,6 +1102,7 @@
    {
     "resource": 14,
     "aclFormula": "user.Access not in [OWNER]",
+    "aclFormulaParsed": "[\"NotIn\", [\"Attr\", [\"Name\", \"user\"], \"Access\"], [\"List\", [\"Name\", \"OWNER\"]]]",
     "permissionsText": "-RU",
     "rulePos": 5.625,
     "memo": "Colonne technique",
@@ -1067,6 +1111,7 @@
    {
     "resource": 12,
     "aclFormula": "user.Access in [EDITOR] and (rec.Cree_par == user.Email.lower() or (rec.Email and rec.Email == user.Email.lower()))",
+    "aclFormulaParsed": "[\"And\", [\"In\", [\"Attr\", [\"Name\", \"user\"], \"Access\"], [\"List\", [\"Name\", \"EDITOR\"]]], [\"Or\", [\"Eq\", [\"Attr\", [\"Name\", \"rec\"], \"Cree_par\"], [\"Call\", [\"Attr\", [\"Attr\", [\"Name\", \"user\"], \"Email\"], \"lower\"]]], [\"And\", [\"Attr\", [\"Name\", \"rec\"], \"Email\"], [\"Eq\", [\"Attr\", [\"Name\", \"rec\"], \"Email\"], [\"Call\", [\"Attr\", [\"Attr\", [\"Name\", \"user\"], \"Email\"], \"lower\"]]]]]]",
     "permissionsText": "+RU",
     "rulePos": 30.5,
     "memo": "Modifier son profil ou ceux qu’on a créés",
@@ -1075,6 +1120,7 @@
    {
     "resource": 12,
     "aclFormula": "user.Access in [EDITOR]",
+    "aclFormulaParsed": "[\"In\", [\"Attr\", [\"Name\", \"user\"], \"Access\"], [\"List\", [\"Name\", \"EDITOR\"]]]",
     "permissionsText": "+RC",
     "rulePos": 30.75,
     "memo": "Contributeur : crée des profils",
@@ -1083,6 +1129,7 @@
    {
     "resource": 16,
     "aclFormula": "rec.Email and rec.Email != user.Email.lower()",
+    "aclFormulaParsed": "[\"And\", [\"Attr\", [\"Name\", \"rec\"], \"Email\"], [\"NotEq\", [\"Attr\", [\"Name\", \"rec\"], \"Email\"], [\"Call\", [\"Attr\", [\"Attr\", [\"Name\", \"user\"], \"Email\"], \"lower\"]]]]",
     "permissionsText": "-RU",
     "rulePos": 35,
     "memo": "Chacun ne voit que sa ligne, administrateur compris",
@@ -1091,6 +1138,7 @@
    {
     "resource": 16,
     "aclFormula": "user.Access in [EDITOR]",
+    "aclFormulaParsed": "[\"In\", [\"Attr\", [\"Name\", \"user\"], \"Access\"], [\"List\", [\"Name\", \"EDITOR\"]]]",
     "permissionsText": "+CRU",
     "rulePos": 36,
     "memo": "Contributeur : crée son compte et choisit son profil",
@@ -1099,6 +1147,7 @@
    {
     "resource": 16,
     "aclFormula": "True",
+    "aclFormulaParsed": "[\"Const\", true]",
     "permissionsText": "-CRUD",
     "rulePos": 37,
     "memo": "Par défaut : rien",
@@ -1107,6 +1156,7 @@
    {
     "resource": 17,
     "aclFormula": "True",
+    "aclFormulaParsed": "[\"Const\", true]",
     "permissionsText": "-U",
     "rulePos": 38,
     "memo": "Email du compte : posé par Grist, jamais modifié",
@@ -1115,6 +1165,7 @@
    {
     "resource": 16,
     "aclFormula": "user.Access in [OWNER]",
+    "aclFormulaParsed": "[\"In\", [\"Attr\", [\"Name\", \"user\"], \"Access\"], [\"List\", [\"Name\", \"OWNER\"]]]",
     "permissionsText": "+CRUD",
     "rulePos": 35.5,
     "memo": "Administrateur : nettoie les comptes",
@@ -1123,6 +1174,7 @@
    {
     "resource": 16,
     "aclFormula": "user.Access in [EDITOR] and newRec.Email and newRec.Email != user.Email.lower()",
+    "aclFormulaParsed": "[\"And\", [\"In\", [\"Attr\", [\"Name\", \"user\"], \"Access\"], [\"List\", [\"Name\", \"EDITOR\"]]], [\"Attr\", [\"Name\", \"newRec\"], \"Email\"], [\"NotEq\", [\"Attr\", [\"Name\", \"newRec\"], \"Email\"], [\"Call\", [\"Attr\", [\"Attr\", [\"Name\", \"user\"], \"Email\"], \"lower\"]]]]",
     "permissionsText": "-CU",
     "rulePos": 35.25,
     "memo": "Pas de compte au nom d’un autre",
@@ -1131,6 +1183,7 @@
    {
     "resource": 16,
     "aclFormula": "user.Access in [EDITOR] and not newRec.Profil_valide",
+    "aclFormulaParsed": "[\"And\", [\"In\", [\"Attr\", [\"Name\", \"user\"], \"Access\"], [\"List\", [\"Name\", \"EDITOR\"]]], [\"Not\", [\"Attr\", [\"Name\", \"newRec\"], \"Profil_valide\"]]]",
     "permissionsText": "-CU",
     "rulePos": 35.75,
     "memo": "On ne se rattache qu’à un profil créé soi-même, avec un email unique",
@@ -1139,6 +1192,7 @@
    {
     "resource": 12,
     "aclFormula": "user.Access in [EDITOR] and newRec.Doublon_email",
+    "aclFormulaParsed": "[\"And\", [\"In\", [\"Attr\", [\"Name\", \"user\"], \"Access\"], [\"List\", [\"Name\", \"EDITOR\"]]], [\"Attr\", [\"Name\", \"newRec\"], \"Doublon_email\"]]",
     "permissionsText": "-CU",
     "rulePos": 30.25,
     "memo": "Une adresse email = un seul profil",
@@ -1147,6 +1201,7 @@
    {
     "resource": 12,
     "aclFormula": "user.Access in [EDITOR] and rec.Connecte and rec.Email != user.Email.lower()",
+    "aclFormulaParsed": "[\"And\", [\"In\", [\"Attr\", [\"Name\", \"user\"], \"Access\"], [\"List\", [\"Name\", \"EDITOR\"]]], [\"Attr\", [\"Name\", \"rec\"], \"Connecte\"], [\"NotEq\", [\"Attr\", [\"Name\", \"rec\"], \"Email\"], [\"Call\", [\"Attr\", [\"Attr\", [\"Name\", \"user\"], \"Email\"], \"lower\"]]]]",
     "permissionsText": "-U",
     "rulePos": 30.375,
     "memo": "Profil verrouillé dès la première connexion de son titulaire",
@@ -1155,6 +1210,7 @@
    {
     "resource": 13,
     "aclFormula": "True",
+    "aclFormulaParsed": "[\"Const\", true]",
     "permissionsText": "-RU",
     "rulePos": 5.875,
     "memo": "Par défaut : rien",
@@ -1163,6 +1219,7 @@
    {
     "resource": 19,
     "aclFormula": "user.Access in [OWNER]",
+    "aclFormulaParsed": "[\"In\", [\"Attr\", [\"Name\", \"user\"], \"Access\"], [\"List\", [\"Name\", \"OWNER\"]]]",
     "permissionsText": "+CRUDS",
     "rulePos": 36.5,
     "memo": "Administrateur",
@@ -1171,6 +1228,7 @@
    {
     "resource": 19,
     "aclFormula": "user.Access in [EDITOR, VIEWER]",
+    "aclFormulaParsed": "[\"In\", [\"Attr\", [\"Name\", \"user\"], \"Access\"], [\"List\", [\"Name\", \"EDITOR\"], [\"Name\", \"VIEWER\"]]]",
     "permissionsText": "+R",
     "rulePos": 36.75,
     "memo": "Lecture pour tous",
@@ -1179,6 +1237,7 @@
    {
     "resource": 19,
     "aclFormula": "True",
+    "aclFormulaParsed": "[\"Const\", true]",
     "permissionsText": "-CRUDS",
     "rulePos": 36.875,
     "memo": "Par défaut : rien",
