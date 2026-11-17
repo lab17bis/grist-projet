@@ -576,30 +576,7 @@
       }); });
       return a.length ? grist.docApi.applyUserActions(a) : null;
     }).then(function () {
-      // 4. Règles d'accès du modèle (seulement si le document n'en a pas pour ces tables).
-      return grist.docApi.fetchTable('_grist_ACLResources').then(function (x) {
-        var existantes = lignesDepuisColonnes(x);
-        if (existantes.some(function (r) { return ordre.indexOf(r.tableId) >= 0; })) return null;
-        var res = sch.acl.resources.filter(function (r) { return r.tableId && r.tableId !== '*'; });
-        return grist.docApi.applyUserActions(res.map(function (r) { return ['AddRecord', '_grist_ACLResources', null, { tableId: r.tableId, colIds: r.colIds }]; })).then(function (ret) {
-          var carte = { 1: 1 };
-          res.forEach(function (r, i) { carte[r.id] = ret.retValues[i]; });
-          // Les règles par défaut du modèle (ressource « toutes les tables ») ne s'appliquent ici
-          // qu'aux tables de l'outil : les autres outils du document gardent leurs propres droits.
-          var globale = sch.acl.resources.filter(function (r) { return r.tableId === '*'; }).map(function (r) { return r.id; });
-          var parTable = res.filter(function (r) { return r.tableId !== '*' && r.colIds === '*'; });
-          var regles = [];
-          sch.acl.rules.filter(function (r) { return r.aclFormula || r.permissionsText || r.userAttributes; }).forEach(function (r) {
-            if (globale.indexOf(r.resource) < 0) { regles.push(Object.assign({}, r, { resource: carte[r.resource] || 1 })); return; }
-            parTable.forEach(function (t) { regles.push(Object.assign({}, r, { resource: carte[t.id], rulePos: 1000 + (r.rulePos || 0) })); });
-          });
-          return grist.docApi.applyUserActions(regles.map(function (r) {
-            return ['AddRecord', '_grist_ACLRules', null, { resource: r.resource, aclFormula: r.aclFormula || '', aclFormulaParsed: r.aclFormulaParsed || '',
-              permissionsText: r.permissionsText || '', rulePos: r.rulePos, memo: r.memo || '', userAttributes: r.userAttributes || '' }];
-          }));
-        });
-      });
-    }).then(function () {
+      // 4. Exemple fictif (avant les règles d'accès, qui rechargent le document).
       if (!exemple) return null;
       return fetch('../donnees-fictives/exemple.json').then(function (r) { return r.json(); }).then(function (ex) {
         var a = [];
@@ -620,6 +597,38 @@
           a.push(['BulkAddRecord', t, lignes.map(function (l) { return l.id; }), cols]);
         });
         return grist.docApi.applyUserActions(a);
+      });
+    }).then(function () {
+      // 5. Règles d'accès du modèle, en dernier et en un seul lot : Grist recharge le document
+      //    (et ce widget) dès que les règles changent. Les identifiants négatifs relient
+      //    les règles aux ressources créées dans le même lot.
+      return grist.docApi.fetchTable('_grist_ACLResources').then(function (x) {
+        var existantes = lignesDepuisColonnes(x);
+        if (existantes.some(function (r) { return ordre.indexOf(r.tableId) >= 0; })) return null;
+        var res = sch.acl.resources.filter(function (r) { return r.tableId && r.tableId !== '*'; });
+        var carte = { 1: 1 };
+        res.forEach(function (r, i) { carte[r.id] = -(i + 1); });
+        // Les règles par défaut du modèle (ressource « toutes les tables ») ne s'appliquent ici
+        // qu'aux tables de l'outil : les autres outils du document gardent leurs propres droits.
+        var globale = sch.acl.resources.filter(function (r) { return r.tableId === '*'; }).map(function (r) { return r.id; });
+        var parTable = res.filter(function (r) { return r.colIds === '*'; });
+        var regles = [];
+        sch.acl.rules.filter(function (r) { return r.aclFormula || r.permissionsText || r.userAttributes; }).forEach(function (r) {
+          if (globale.indexOf(r.resource) < 0) { regles.push(Object.assign({}, r, { resource: carte[r.resource] || 1 })); return; }
+          parTable.forEach(function (t) { regles.push(Object.assign({}, r, { resource: carte[t.id], rulePos: 1000 + (r.rulePos || 0) })); });
+        });
+        return grist.docApi.applyUserActions([
+          ['BulkAddRecord', '_grist_ACLResources', res.map(function (r, i) { return -(i + 1); }), { tableId: res.map(function (r) { return r.tableId; }), colIds: res.map(function (r) { return r.colIds; }) }],
+          ['BulkAddRecord', '_grist_ACLRules', regles.map(function () { return null; }), {
+            resource: regles.map(function (r) { return r.resource; }), aclFormula: regles.map(function (r) { return r.aclFormula || ''; }),
+            aclFormulaParsed: regles.map(function (r) { return r.aclFormulaParsed || ''; }), permissionsText: regles.map(function (r) { return r.permissionsText || ''; }),
+            rulePos: regles.map(function (r) { return r.rulePos; }), memo: regles.map(function (r) { return r.memo || ''; }), userAttributes: regles.map(function (r) { return r.userAttributes || ''; })
+          }]
+        ]).catch(function (err) {
+          // Le rechargement du document coupe la connexion : ce n'est pas un échec.
+          if (/disposed|closed|disconnect/i.test(String((err && err.message) || err))) return null;
+          throw err;
+        });
       });
     }).then(function () {
       etat.alerte = { type: 'success', texte: 'Espace projets installé, avec ses règles d\'accès.' + (exemple ? ' L\'exemple fictif est chargé.' : '') + ' Créez maintenant votre profil.' };
