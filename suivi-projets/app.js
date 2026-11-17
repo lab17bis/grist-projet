@@ -580,13 +580,21 @@
       return grist.docApi.fetchTable('_grist_ACLResources').then(function (x) {
         var existantes = lignesDepuisColonnes(x);
         if (existantes.some(function (r) { return ordre.indexOf(r.tableId) >= 0; })) return null;
-        var res = sch.acl.resources.filter(function (r) { return r.tableId; });
+        var res = sch.acl.resources.filter(function (r) { return r.tableId && r.tableId !== '*'; });
         return grist.docApi.applyUserActions(res.map(function (r) { return ['AddRecord', '_grist_ACLResources', null, { tableId: r.tableId, colIds: r.colIds }]; })).then(function (ret) {
           var carte = { 1: 1 };
           res.forEach(function (r, i) { carte[r.id] = ret.retValues[i]; });
-          var regles = sch.acl.rules.filter(function (r) { return r.aclFormula || r.permissionsText || r.userAttributes; });
+          // Les règles par défaut du modèle (ressource « toutes les tables ») ne s'appliquent ici
+          // qu'aux tables de l'outil : les autres outils du document gardent leurs propres droits.
+          var globale = sch.acl.resources.filter(function (r) { return r.tableId === '*'; }).map(function (r) { return r.id; });
+          var parTable = res.filter(function (r) { return r.tableId !== '*' && r.colIds === '*'; });
+          var regles = [];
+          sch.acl.rules.filter(function (r) { return r.aclFormula || r.permissionsText || r.userAttributes; }).forEach(function (r) {
+            if (globale.indexOf(r.resource) < 0) { regles.push(Object.assign({}, r, { resource: carte[r.resource] || 1 })); return; }
+            parTable.forEach(function (t) { regles.push(Object.assign({}, r, { resource: carte[t.id], rulePos: 1000 + (r.rulePos || 0) })); });
+          });
           return grist.docApi.applyUserActions(regles.map(function (r) {
-            return ['AddRecord', '_grist_ACLRules', null, { resource: carte[r.resource] || 1, aclFormula: r.aclFormula || '', aclFormulaParsed: r.aclFormulaParsed || '',
+            return ['AddRecord', '_grist_ACLRules', null, { resource: r.resource, aclFormula: r.aclFormula || '', aclFormulaParsed: r.aclFormulaParsed || '',
               permissionsText: r.permissionsText || '', rulePos: r.rulePos, memo: r.memo || '', userAttributes: r.userAttributes || '' }];
           }));
         });
