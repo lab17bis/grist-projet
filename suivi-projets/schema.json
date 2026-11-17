@@ -1,0 +1,1189 @@
+{
+ "tables": {
+  "Structures": [
+   {
+    "id": "Nom",
+    "type": "Text"
+   },
+   {
+    "id": "Sigle",
+    "type": "Text"
+   },
+   {
+    "id": "Type",
+    "type": "Choice",
+    "widgetOptions": {
+     "choices": [
+      "Site",
+      "Direction",
+      "Division",
+      "Bureau",
+      "Service",
+      "Mission",
+      "Corps d'inspection",
+      "Partenaire"
+     ]
+    }
+   },
+   {
+    "id": "Parent",
+    "type": "Ref:Structures",
+    "label": "Rattachée à",
+    "visibleCol": "Libelle"
+   },
+   {
+    "id": "Libelle",
+    "type": "Text",
+    "isFormula": true,
+    "formula": "($Sigle + \" – \" if $Sigle else \"\") + $Nom",
+    "label": "Libellé"
+   },
+   {
+    "id": "Chemin",
+    "type": "Text",
+    "isFormula": true,
+    "formula": "n = rec\nparts = []\nwhile n and len(parts) < 8:\n  parts.insert(0, n.Sigle or n.Nom)\n  n = n.Parent\nreturn \" › \".join(parts)"
+   },
+   {
+    "id": "Active",
+    "type": "Bool",
+    "formula": "True"
+   }
+  ],
+  "Personnes": [
+   {
+    "id": "Nom",
+    "type": "Text",
+    "label": "Nom et prénom"
+   },
+   {
+    "id": "Email_saisi",
+    "type": "Text",
+    "label": "Email saisi par un administrateur"
+   },
+   {
+    "id": "Structure",
+    "type": "Ref:Structures",
+    "label": "Structure de rattachement",
+    "visibleCol": "Libelle"
+   },
+   {
+    "id": "Cree_par",
+    "type": "Text",
+    "formula": "(user.Email or \"\").strip().lower()"
+   },
+   {
+    "id": "Compte_lie",
+    "type": "Bool",
+    "isFormula": true,
+    "formula": "bool($Email)",
+    "label": "Compte lié"
+   },
+   {
+    "id": "Email",
+    "type": "Text",
+    "isFormula": true,
+    "formula": "if $Email_saisi:\n  return $Email_saisi.strip().lower()\nemails = set(c.Email.strip().lower() for c in Comptes.lookupRecords(Profil=$id) if c.Email)\nreturn emails.pop() if len(emails) == 1 else \"\""
+   },
+   {
+    "id": "Cree_le",
+    "type": "DateTime:Europe/Paris",
+    "formula": "NOW()",
+    "label": "Créé le"
+   },
+   {
+    "id": "Connecte",
+    "type": "Bool",
+    "isFormula": true,
+    "formula": "bool($Email) and bool(Comptes.lookupOne(Email=$Email))",
+    "label": "Connecté"
+   },
+   {
+    "id": "Doublon_email",
+    "type": "Bool",
+    "isFormula": true,
+    "formula": "bool($Email) and len(Personnes.lookupRecords(Email=$Email)) > 1",
+    "label": "Email en double"
+   },
+   {
+    "id": "Cle_nom",
+    "type": "Text",
+    "isFormula": true,
+    "formula": "import unicodedata, re\nt = unicodedata.normalize(\"NFD\", $Nom or \"\").encode(\"ascii\", \"ignore\").decode().lower()\nreturn \" \".join(sorted(re.findall(r\"[a-z]+\", t)))",
+    "label": "Clé nom"
+   },
+   {
+    "id": "A_verifier",
+    "type": "Text",
+    "isFormula": true,
+    "formula": "r = []\ndom = (Parametres.lookupOne(Cle=\"Domaine_courriel\").Valeur or \"\").strip().lstrip(\"@\").lower()\nif not $Email:\n  r.append(\"sans email\")\nelif dom and not $Email.lower().endswith(\"@\" + dom):\n  r.append(\"email hors domaine\")\nif $Doublon_email:\n  r.append(\"email en double\")\nif $Cle_nom and len(Personnes.lookupRecords(Cle_nom=$Cle_nom)) > 1:\n  r.append(\"nom en double\")\nif $Email and not $Connecte and $Cree_le and (NOW() - $Cree_le).days >= 30:\n  r.append(\"jamais connecté depuis 30 jours\")\nreturn \", \".join(r)",
+    "label": "À vérifier"
+   }
+  ],
+  "Projets": [
+   {
+    "id": "Titre",
+    "type": "Text",
+    "label": "Titre du projet"
+   },
+   {
+    "id": "Resume",
+    "type": "Text",
+    "label": "En bref"
+   },
+   {
+    "id": "Structure_porteuse",
+    "type": "Ref:Structures",
+    "label": "Structure porteuse",
+    "visibleCol": "Libelle"
+   },
+   {
+    "id": "Porteurs",
+    "type": "RefList:Personnes",
+    "label": "Porteurs (co-porteurs)",
+    "visibleCol": "Nom"
+   },
+   {
+    "id": "Equipe",
+    "type": "RefList:Personnes",
+    "label": "Équipe projet",
+    "visibleCol": "Nom"
+   },
+   {
+    "id": "Structures_associees",
+    "type": "RefList:Structures",
+    "label": "Structures associées",
+    "visibleCol": "Libelle"
+   },
+   {
+    "id": "Phase",
+    "type": "Choice",
+    "formula": "\"Idée\"",
+    "widgetOptions": {
+     "choices": [
+      "Idée",
+      "Cadrage",
+      "Construction",
+      "Expérimentation",
+      "Déploiement",
+      "Bilan",
+      "Clos"
+     ]
+    }
+   },
+   {
+    "id": "Etat",
+    "type": "Choice",
+    "formula": "\"En cours\"",
+    "label": "État",
+    "widgetOptions": {
+     "choices": [
+      "En cours",
+      "En pause",
+      "Bloqué",
+      "Terminé",
+      "Abandonné"
+     ]
+    }
+   },
+   {
+    "id": "Origine",
+    "type": "Choice",
+    "widgetOptions": {
+     "choices": [
+      "Initiative de la structure",
+      "Commande de la hiérarchie",
+      "Feuille de route de l'organisation",
+      "Plan ou réforme nationale",
+      "Appel à projets",
+      "Demande d'un partenaire",
+      "Autre"
+     ]
+    }
+   },
+   {
+    "id": "Commanditaire",
+    "type": "Ref:Personnes",
+    "label": "Mission confiée par",
+    "visibleCol": "Nom"
+   },
+   {
+    "id": "Mission",
+    "type": "Text",
+    "label": "Mission confiée (consigne, lettre de mission)"
+   },
+   {
+    "id": "Objectifs",
+    "type": "Text",
+    "label": "Objectifs attendus"
+   },
+   {
+    "id": "Thematiques",
+    "type": "ChoiceList",
+    "label": "Thématiques",
+    "widgetOptions": {
+     "choices": [
+      "Organisation",
+      "Ressources humaines",
+      "Formation",
+      "Qualité de vie au travail",
+      "Numérique",
+      "Données",
+      "Communication",
+      "Pilotage",
+      "Moyens et finances",
+      "Immobilier",
+      "Relation à l'usager",
+      "Inclusion",
+      "Transformation",
+      "Partenariats",
+      "Sécurité",
+      "Transition écologique",
+      "Autre"
+     ]
+    }
+   },
+   {
+    "id": "Date_debut",
+    "type": "Date",
+    "label": "Début",
+    "widgetOptions": {
+     "dateFormat": "DD/MM/YYYY"
+    }
+   },
+   {
+    "id": "Echeance",
+    "type": "Date",
+    "label": "Échéance prévisionnelle",
+    "widgetOptions": {
+     "dateFormat": "DD/MM/YYYY"
+    }
+   },
+   {
+    "id": "Visibilite",
+    "type": "Choice",
+    "formula": "\"Ouvert\"",
+    "label": "Visibilité",
+    "widgetOptions": {
+     "choices": [
+      "Ouvert",
+      "Restreint"
+     ]
+    }
+   },
+   {
+    "id": "Cree_par",
+    "type": "Text",
+    "formula": "(user.Email or \"\").strip().lower()",
+    "label": "Créé par"
+   },
+   {
+    "id": "Cree_le",
+    "type": "DateTime:Europe/Paris",
+    "formula": "NOW()",
+    "label": "Créé le",
+    "widgetOptions": {
+     "dateFormat": "DD/MM/YYYY",
+     "timeFormat": "HH:mm"
+    }
+   },
+   {
+    "id": "Maj_le",
+    "type": "DateTime:Europe/Paris",
+    "formula": "NOW()",
+    "label": "Fiche modifiée le",
+    "widgetOptions": {
+     "dateFormat": "DD/MM/YYYY",
+     "timeFormat": "HH:mm"
+    }
+   },
+   {
+    "id": "Acces",
+    "type": "ChoiceList",
+    "isFormula": true,
+    "formula": "[p.Email for p in $Porteurs if p.Email] + ([$Cree_par] if $Cree_par else [])",
+    "label": "Droits d'édition (calculé)"
+   },
+   {
+    "id": "Lecteurs",
+    "type": "ChoiceList",
+    "isFormula": true,
+    "formula": "list($Acces) + [p.Email for p in $Equipe if p.Email] + ([$Commanditaire.Email] if $Commanditaire and $Commanditaire.Email else [])",
+    "label": "Droits de lecture si restreint (calculé)"
+   },
+   {
+    "id": "Avancement",
+    "type": "Numeric",
+    "isFormula": true,
+    "formula": "acts = [a for a in Actions.lookupRecords(Projet=$id) if a.Etat != \"Abandonné\"]\nif not acts:\n  return None\nreturn round(100.0 * len([a for a in acts if a.Etat == \"Fait\"]) / len(acts))",
+    "label": "Avancement (% d'actions faites)"
+   },
+   {
+    "id": "Derniere_activite",
+    "type": "DateTime:Europe/Paris",
+    "isFormula": true,
+    "formula": "dates = [$Maj_le] + [j.Cree_le for j in Journal.lookupRecords(Projet=$id)] + [a.Maj_le for a in Actions.lookupRecords(Projet=$id)]\ndates = [d for d in dates if d]\nreturn max(dates) if dates else None",
+    "label": "Dernière activité",
+    "widgetOptions": {
+     "dateFormat": "DD/MM/YYYY",
+     "timeFormat": "HH:mm"
+    }
+   },
+   {
+    "id": "Jours_sans_activite",
+    "type": "Int",
+    "isFormula": true,
+    "formula": "return (NOW() - $Derniere_activite).days if $Derniere_activite else None",
+    "label": "Jours sans activité"
+   },
+   {
+    "id": "Archive",
+    "type": "Bool",
+    "isFormula": true,
+    "formula": "$Phase == \"Clos\" or $Etat in (\"Terminé\", \"Abandonné\")",
+    "label": "Archivé"
+   },
+   {
+    "id": "Contributeurs",
+    "type": "ChoiceList",
+    "isFormula": true,
+    "formula": "list($Acces) + [p.Email for p in $Equipe if p.Email]",
+    "label": "Droits de contribution (calculé)"
+   },
+   {
+    "id": "Config_suivi",
+    "type": "Text",
+    "isFormula": true
+   }
+  ],
+  "Actions": [
+   {
+    "id": "Projet",
+    "type": "Ref:Projets",
+    "visibleCol": "Titre"
+   },
+   {
+    "id": "Intitule",
+    "type": "Text",
+    "label": "Action"
+   },
+   {
+    "id": "Responsable",
+    "type": "Ref:Personnes",
+    "visibleCol": "Nom"
+   },
+   {
+    "id": "Debut",
+    "type": "Date",
+    "label": "Début",
+    "widgetOptions": {
+     "dateFormat": "DD/MM/YYYY"
+    }
+   },
+   {
+    "id": "Fin",
+    "type": "Date",
+    "widgetOptions": {
+     "dateFormat": "DD/MM/YYYY"
+    }
+   },
+   {
+    "id": "Etat",
+    "type": "Choice",
+    "formula": "\"À faire\"",
+    "label": "État",
+    "widgetOptions": {
+     "choices": [
+      "À faire",
+      "En cours",
+      "Fait",
+      "Abandonné"
+     ]
+    }
+   },
+   {
+    "id": "Cree_par",
+    "type": "Text",
+    "formula": "(user.Email or \"\").strip().lower()",
+    "label": "Créé par"
+   },
+   {
+    "id": "Maj_le",
+    "type": "DateTime:Europe/Paris",
+    "formula": "NOW()",
+    "label": "Modifiée le",
+    "widgetOptions": {
+     "dateFormat": "DD/MM/YYYY",
+     "timeFormat": "HH:mm"
+    }
+   },
+   {
+    "id": "Acces",
+    "type": "ChoiceList",
+    "isFormula": true,
+    "formula": "list($Projet.Acces)",
+    "label": "Droits d'édition (calculé)"
+   },
+   {
+    "id": "Lecteurs",
+    "type": "ChoiceList",
+    "isFormula": true,
+    "formula": "list($Projet.Lecteurs)",
+    "label": "Droits de lecture (calculé)"
+   },
+   {
+    "id": "Visibilite",
+    "type": "Text",
+    "isFormula": true,
+    "formula": "$Projet.Visibilite",
+    "label": "Visibilité (du projet)"
+   },
+   {
+    "id": "Contributeurs",
+    "type": "ChoiceList",
+    "isFormula": true,
+    "formula": "list($Projet.Contributeurs)",
+    "label": "Droits de contribution (calculé)"
+   }
+  ],
+  "Journal": [
+   {
+    "id": "Projet",
+    "type": "Ref:Projets",
+    "visibleCol": "Titre"
+   },
+   {
+    "id": "Type",
+    "type": "Choice",
+    "widgetOptions": {
+     "choices": [
+      "Avancement",
+      "Décision",
+      "Difficulté",
+      "Information"
+     ]
+    }
+   },
+   {
+    "id": "Message",
+    "type": "Text"
+   },
+   {
+    "id": "Auteur",
+    "type": "Text",
+    "formula": "user.Name"
+   },
+   {
+    "id": "Cree_par",
+    "type": "Text",
+    "formula": "(user.Email or \"\").strip().lower()",
+    "label": "Créé par"
+   },
+   {
+    "id": "Cree_le",
+    "type": "DateTime:Europe/Paris",
+    "formula": "NOW()",
+    "label": "Date",
+    "widgetOptions": {
+     "dateFormat": "DD/MM/YYYY",
+     "timeFormat": "HH:mm"
+    }
+   },
+   {
+    "id": "Acces",
+    "type": "ChoiceList",
+    "isFormula": true,
+    "formula": "list($Projet.Acces)",
+    "label": "Droits d'édition (calculé)"
+   },
+   {
+    "id": "Lecteurs",
+    "type": "ChoiceList",
+    "isFormula": true,
+    "formula": "list($Projet.Lecteurs)",
+    "label": "Droits de lecture (calculé)"
+   },
+   {
+    "id": "Visibilite",
+    "type": "Text",
+    "isFormula": true,
+    "formula": "$Projet.Visibilite",
+    "label": "Visibilité (du projet)"
+   },
+   {
+    "id": "Contributeurs",
+    "type": "ChoiceList",
+    "isFormula": true,
+    "formula": "list($Projet.Contributeurs)",
+    "label": "Droits de contribution (calculé)"
+   }
+  ],
+  "Documents": [
+   {
+    "id": "Projet",
+    "type": "Ref:Projets",
+    "visibleCol": "Titre"
+   },
+   {
+    "id": "Titre",
+    "type": "Text"
+   },
+   {
+    "id": "Type",
+    "type": "Choice",
+    "widgetOptions": {
+     "choices": [
+      "Note de cadrage",
+      "Lettre de mission",
+      "Compte rendu",
+      "Livrable",
+      "Présentation",
+      "Autre"
+     ]
+    }
+   },
+   {
+    "id": "Lien",
+    "type": "Text",
+    "label": "Lien (Nextcloud, Docs…)"
+   },
+   {
+    "id": "Cree_par",
+    "type": "Text",
+    "formula": "(user.Email or \"\").strip().lower()",
+    "label": "Créé par"
+   },
+   {
+    "id": "Acces",
+    "type": "ChoiceList",
+    "isFormula": true,
+    "formula": "list($Projet.Acces)",
+    "label": "Droits d'édition (calculé)"
+   },
+   {
+    "id": "Lecteurs",
+    "type": "ChoiceList",
+    "isFormula": true,
+    "formula": "list($Projet.Lecteurs)",
+    "label": "Droits de lecture (calculé)"
+   },
+   {
+    "id": "Visibilite",
+    "type": "Text",
+    "isFormula": true,
+    "formula": "$Projet.Visibilite",
+    "label": "Visibilité (du projet)"
+   },
+   {
+    "id": "Contributeurs",
+    "type": "ChoiceList",
+    "isFormula": true,
+    "formula": "list($Projet.Contributeurs)",
+    "label": "Droits de contribution (calculé)"
+   }
+  ],
+  "Comptes": [
+   {
+    "id": "Email",
+    "type": "Text",
+    "formula": "(user.Email or \"\").strip().lower()"
+   },
+   {
+    "id": "Cree_le",
+    "type": "DateTime:Europe/Paris",
+    "formula": "NOW()"
+   },
+   {
+    "id": "Profil",
+    "type": "Ref:Personnes",
+    "label": "Mon profil"
+   },
+   {
+    "id": "Profil_email",
+    "type": "Text",
+    "isFormula": true,
+    "formula": "$Profil.Email"
+   },
+   {
+    "id": "Profil_valide",
+    "type": "Bool",
+    "isFormula": true,
+    "formula": "not $Profil or ($Profil.Cree_par == $Email and $Profil.Email == $Email and not $Profil.Doublon_email)"
+   }
+  ],
+  "Parametres": [
+   {
+    "id": "Cle",
+    "type": "Text",
+    "label": "A"
+   },
+   {
+    "id": "Valeur",
+    "type": "Text"
+   }
+  ]
+ },
+ "acl": {
+  "resources": [
+   {
+    "id": 1,
+    "tableId": "",
+    "colIds": ""
+   },
+   {
+    "id": 2,
+    "tableId": "*",
+    "colIds": "*"
+   },
+   {
+    "id": 3,
+    "tableId": "Projets",
+    "colIds": "*"
+   },
+   {
+    "id": 4,
+    "tableId": "Projets",
+    "colIds": "Acces,Lecteurs,Cree_par,Contributeurs"
+   },
+   {
+    "id": 5,
+    "tableId": "Actions",
+    "colIds": "*"
+   },
+   {
+    "id": 6,
+    "tableId": "Actions",
+    "colIds": "Acces,Lecteurs,Cree_par,Contributeurs"
+   },
+   {
+    "id": 7,
+    "tableId": "Journal",
+    "colIds": "*"
+   },
+   {
+    "id": 8,
+    "tableId": "Journal",
+    "colIds": "Acces,Lecteurs,Cree_par,Contributeurs"
+   },
+   {
+    "id": 9,
+    "tableId": "Documents",
+    "colIds": "*"
+   },
+   {
+    "id": 10,
+    "tableId": "Documents",
+    "colIds": "Acces,Lecteurs,Cree_par,Contributeurs"
+   },
+   {
+    "id": 11,
+    "tableId": "Structures",
+    "colIds": "*"
+   },
+   {
+    "id": 12,
+    "tableId": "Personnes",
+    "colIds": "*"
+   },
+   {
+    "id": 13,
+    "tableId": "Personnes",
+    "colIds": "Email,Email_saisi"
+   },
+   {
+    "id": 14,
+    "tableId": "Personnes",
+    "colIds": "Cree_par"
+   },
+   {
+    "id": 16,
+    "tableId": "Comptes",
+    "colIds": "*"
+   },
+   {
+    "id": 17,
+    "tableId": "Comptes",
+    "colIds": "Email"
+   },
+   {
+    "id": 19,
+    "tableId": "Parametres",
+    "colIds": "*"
+   }
+  ],
+  "rules": [
+   {
+    "resource": 1,
+    "aclFormula": "",
+    "permissionsText": "",
+    "rulePos": null,
+    "memo": "",
+    "userAttributes": ""
+   },
+   {
+    "resource": 4,
+    "aclFormula": "user.Access not in [OWNER]",
+    "permissionsText": "-R",
+    "rulePos": 1,
+    "memo": "Colonnes techniques : administrateurs seulement",
+    "userAttributes": ""
+   },
+   {
+    "resource": 6,
+    "aclFormula": "user.Access not in [OWNER]",
+    "permissionsText": "-R",
+    "rulePos": 2,
+    "memo": "Colonnes techniques : administrateurs seulement",
+    "userAttributes": ""
+   },
+   {
+    "resource": 8,
+    "aclFormula": "user.Access not in [OWNER]",
+    "permissionsText": "-R",
+    "rulePos": 3,
+    "memo": "Colonnes techniques : administrateurs seulement",
+    "userAttributes": ""
+   },
+   {
+    "resource": 10,
+    "aclFormula": "user.Access not in [OWNER]",
+    "permissionsText": "-R",
+    "rulePos": 4,
+    "memo": "Colonnes techniques : administrateurs seulement",
+    "userAttributes": ""
+   },
+   {
+    "resource": 13,
+    "aclFormula": "user.Access in [OWNER]",
+    "permissionsText": "+RU",
+    "rulePos": 5,
+    "memo": "Administrateur : voit et corrige les emails",
+    "userAttributes": ""
+   },
+   {
+    "resource": 3,
+    "aclFormula": "user.Access in [OWNER]",
+    "permissionsText": "+CRUDS",
+    "rulePos": 6,
+    "memo": "Administrateur : tout",
+    "userAttributes": ""
+   },
+   {
+    "resource": 3,
+    "aclFormula": "user.Access in [EDITOR] and user.Email.lower() in rec.Acces",
+    "permissionsText": "+RU",
+    "rulePos": 7,
+    "memo": "Co-porteurs et créateur : modifient leur projet",
+    "userAttributes": ""
+   },
+   {
+    "resource": 3,
+    "aclFormula": "rec.Visibilite == \"Restreint\" and user.Email.lower() not in rec.Lecteurs",
+    "permissionsText": "-CRUDS",
+    "rulePos": 8,
+    "memo": "Projet restreint : invisible hors porteurs, équipe et commanditaire",
+    "userAttributes": ""
+   },
+   {
+    "resource": 3,
+    "aclFormula": "user.Access in [EDITOR]",
+    "permissionsText": "+RC",
+    "rulePos": 9,
+    "memo": "Contributeur : consulte tout, déclare un projet",
+    "userAttributes": ""
+   },
+   {
+    "resource": 3,
+    "aclFormula": "user.Access in [VIEWER]",
+    "permissionsText": "+R",
+    "rulePos": 10,
+    "memo": "Lecteur : consulte",
+    "userAttributes": ""
+   },
+   {
+    "resource": 3,
+    "aclFormula": "True",
+    "permissionsText": "-CRUDS",
+    "rulePos": 11,
+    "memo": "Par défaut : rien",
+    "userAttributes": ""
+   },
+   {
+    "resource": 5,
+    "aclFormula": "user.Access in [OWNER]",
+    "permissionsText": "+CRUDS",
+    "rulePos": 12,
+    "memo": "Administrateur : tout",
+    "userAttributes": ""
+   },
+   {
+    "resource": 5,
+    "aclFormula": "user.Access in [EDITOR] and user.Email.lower() in rec.Acces",
+    "permissionsText": "+CRUD",
+    "rulePos": 13,
+    "memo": "Co-porteurs : gèrent les éléments de leur projet",
+    "userAttributes": ""
+   },
+   {
+    "resource": 5,
+    "aclFormula": "rec.Visibilite == \"Restreint\" and user.Email.lower() not in rec.Lecteurs",
+    "permissionsText": "-CRUDS",
+    "rulePos": 14,
+    "memo": "Projet restreint : invisible",
+    "userAttributes": ""
+   },
+   {
+    "resource": 5,
+    "aclFormula": "user.Access in [EDITOR, VIEWER]",
+    "permissionsText": "+R",
+    "rulePos": 15,
+    "memo": "Consultation",
+    "userAttributes": ""
+   },
+   {
+    "resource": 5,
+    "aclFormula": "True",
+    "permissionsText": "-CRUDS",
+    "rulePos": 16,
+    "memo": "Par défaut : rien",
+    "userAttributes": ""
+   },
+   {
+    "resource": 7,
+    "aclFormula": "user.Access in [OWNER]",
+    "permissionsText": "+CRUDS",
+    "rulePos": 17,
+    "memo": "Administrateur : tout",
+    "userAttributes": ""
+   },
+   {
+    "resource": 7,
+    "aclFormula": "user.Access in [EDITOR] and user.Email.lower() in rec.Acces",
+    "permissionsText": "+CRUD",
+    "rulePos": 18,
+    "memo": "Co-porteurs : gèrent les éléments de leur projet",
+    "userAttributes": ""
+   },
+   {
+    "resource": 7,
+    "aclFormula": "rec.Visibilite == \"Restreint\" and user.Email.lower() not in rec.Lecteurs",
+    "permissionsText": "-CRUDS",
+    "rulePos": 19,
+    "memo": "Projet restreint : invisible",
+    "userAttributes": ""
+   },
+   {
+    "resource": 7,
+    "aclFormula": "user.Access in [EDITOR, VIEWER]",
+    "permissionsText": "+R",
+    "rulePos": 20,
+    "memo": "Consultation",
+    "userAttributes": ""
+   },
+   {
+    "resource": 7,
+    "aclFormula": "True",
+    "permissionsText": "-CRUDS",
+    "rulePos": 21,
+    "memo": "Par défaut : rien",
+    "userAttributes": ""
+   },
+   {
+    "resource": 9,
+    "aclFormula": "user.Access in [OWNER]",
+    "permissionsText": "+CRUDS",
+    "rulePos": 22,
+    "memo": "Administrateur : tout",
+    "userAttributes": ""
+   },
+   {
+    "resource": 9,
+    "aclFormula": "user.Access in [EDITOR] and user.Email.lower() in rec.Acces",
+    "permissionsText": "+CRUD",
+    "rulePos": 23,
+    "memo": "Co-porteurs : gèrent les éléments de leur projet",
+    "userAttributes": ""
+   },
+   {
+    "resource": 9,
+    "aclFormula": "rec.Visibilite == \"Restreint\" and user.Email.lower() not in rec.Lecteurs",
+    "permissionsText": "-CRUDS",
+    "rulePos": 24,
+    "memo": "Projet restreint : invisible",
+    "userAttributes": ""
+   },
+   {
+    "resource": 9,
+    "aclFormula": "user.Access in [EDITOR, VIEWER]",
+    "permissionsText": "+R",
+    "rulePos": 25,
+    "memo": "Consultation",
+    "userAttributes": ""
+   },
+   {
+    "resource": 9,
+    "aclFormula": "True",
+    "permissionsText": "-CRUDS",
+    "rulePos": 26,
+    "memo": "Par défaut : rien",
+    "userAttributes": ""
+   },
+   {
+    "resource": 11,
+    "aclFormula": "user.Access in [OWNER]",
+    "permissionsText": "+CRUDS",
+    "rulePos": 27,
+    "memo": "Administrateur : gère le référentiel",
+    "userAttributes": ""
+   },
+   {
+    "resource": 11,
+    "aclFormula": "user.Access in [EDITOR, VIEWER]",
+    "permissionsText": "+R",
+    "rulePos": 28,
+    "memo": "Consultation",
+    "userAttributes": ""
+   },
+   {
+    "resource": 11,
+    "aclFormula": "True",
+    "permissionsText": "-CRUDS",
+    "rulePos": 29,
+    "memo": "Par défaut : rien",
+    "userAttributes": ""
+   },
+   {
+    "resource": 12,
+    "aclFormula": "user.Access in [OWNER]",
+    "permissionsText": "+CRUDS",
+    "rulePos": 30,
+    "memo": "Administrateur : gère le référentiel",
+    "userAttributes": ""
+   },
+   {
+    "resource": 12,
+    "aclFormula": "user.Access in [EDITOR, VIEWER]",
+    "permissionsText": "+R",
+    "rulePos": 31,
+    "memo": "Consultation",
+    "userAttributes": ""
+   },
+   {
+    "resource": 12,
+    "aclFormula": "True",
+    "permissionsText": "-CRUDS",
+    "rulePos": 32,
+    "memo": "Par défaut : rien",
+    "userAttributes": ""
+   },
+   {
+    "resource": 2,
+    "aclFormula": "user.Access in [OWNER]",
+    "permissionsText": "+CRUDS",
+    "rulePos": 33,
+    "memo": "Administrateur : tout",
+    "userAttributes": ""
+   },
+   {
+    "resource": 2,
+    "aclFormula": "True",
+    "permissionsText": "-CRUDS",
+    "rulePos": 34,
+    "memo": "Par défaut : rien",
+    "userAttributes": ""
+   },
+   {
+    "resource": 5,
+    "aclFormula": "user.Access in [EDITOR] and user.Email.lower() in rec.Contributeurs and rec.Cree_par == user.Email.lower()",
+    "permissionsText": "+CRUD",
+    "rulePos": 13.5,
+    "memo": "Équipe : gère ce qu'elle a créé",
+    "userAttributes": ""
+   },
+   {
+    "resource": 5,
+    "aclFormula": "user.Access in [EDITOR] and user.Email.lower() in rec.Contributeurs",
+    "permissionsText": "+CRU",
+    "rulePos": 13.75,
+    "memo": "Équipe : ajoute et met à jour, sans supprimer le travail des autres",
+    "userAttributes": ""
+   },
+   {
+    "resource": 7,
+    "aclFormula": "user.Access in [EDITOR] and user.Email.lower() in rec.Contributeurs and rec.Cree_par == user.Email.lower()",
+    "permissionsText": "+CRUD",
+    "rulePos": 18.5,
+    "memo": "Équipe : gère ce qu'elle a créé",
+    "userAttributes": ""
+   },
+   {
+    "resource": 7,
+    "aclFormula": "user.Access in [EDITOR] and user.Email.lower() in rec.Contributeurs",
+    "permissionsText": "+CRU",
+    "rulePos": 18.75,
+    "memo": "Équipe : ajoute et met à jour, sans supprimer le travail des autres",
+    "userAttributes": ""
+   },
+   {
+    "resource": 9,
+    "aclFormula": "user.Access in [EDITOR] and user.Email.lower() in rec.Contributeurs and rec.Cree_par == user.Email.lower()",
+    "permissionsText": "+CRUD",
+    "rulePos": 23.5,
+    "memo": "Équipe : gère ce qu'elle a créé",
+    "userAttributes": ""
+   },
+   {
+    "resource": 9,
+    "aclFormula": "user.Access in [EDITOR] and user.Email.lower() in rec.Contributeurs",
+    "permissionsText": "+CRU",
+    "rulePos": 23.75,
+    "memo": "Équipe : ajoute et met à jour, sans supprimer le travail des autres",
+    "userAttributes": ""
+   },
+   {
+    "resource": 13,
+    "aclFormula": "user.Access in [EDITOR] and rec.Cree_par == user.Email.lower() and not rec.Connecte",
+    "permissionsText": "+RU",
+    "rulePos": 5.5,
+    "memo": "Le créateur corrige l’email tant que la personne ne s’est pas connectée",
+    "userAttributes": ""
+   },
+   {
+    "resource": 13,
+    "aclFormula": "user.Access in [EDITOR, VIEWER]",
+    "permissionsText": "+R-U",
+    "rulePos": 5.75,
+    "memo": "Emails visibles par les agents qui ont accès au suivi",
+    "userAttributes": ""
+   },
+   {
+    "resource": 14,
+    "aclFormula": "user.Access not in [OWNER]",
+    "permissionsText": "-RU",
+    "rulePos": 5.625,
+    "memo": "Colonne technique",
+    "userAttributes": ""
+   },
+   {
+    "resource": 12,
+    "aclFormula": "user.Access in [EDITOR] and (rec.Cree_par == user.Email.lower() or (rec.Email and rec.Email == user.Email.lower()))",
+    "permissionsText": "+RU",
+    "rulePos": 30.5,
+    "memo": "Modifier son profil ou ceux qu’on a créés",
+    "userAttributes": ""
+   },
+   {
+    "resource": 12,
+    "aclFormula": "user.Access in [EDITOR]",
+    "permissionsText": "+RC",
+    "rulePos": 30.75,
+    "memo": "Contributeur : crée des profils",
+    "userAttributes": ""
+   },
+   {
+    "resource": 16,
+    "aclFormula": "rec.Email and rec.Email != user.Email.lower()",
+    "permissionsText": "-RU",
+    "rulePos": 35,
+    "memo": "Chacun ne voit que sa ligne, administrateur compris",
+    "userAttributes": ""
+   },
+   {
+    "resource": 16,
+    "aclFormula": "user.Access in [EDITOR]",
+    "permissionsText": "+CRU",
+    "rulePos": 36,
+    "memo": "Contributeur : crée son compte et choisit son profil",
+    "userAttributes": ""
+   },
+   {
+    "resource": 16,
+    "aclFormula": "True",
+    "permissionsText": "-CRUD",
+    "rulePos": 37,
+    "memo": "Par défaut : rien",
+    "userAttributes": ""
+   },
+   {
+    "resource": 17,
+    "aclFormula": "True",
+    "permissionsText": "-U",
+    "rulePos": 38,
+    "memo": "Email du compte : posé par Grist, jamais modifié",
+    "userAttributes": ""
+   },
+   {
+    "resource": 16,
+    "aclFormula": "user.Access in [OWNER]",
+    "permissionsText": "+CRUD",
+    "rulePos": 35.5,
+    "memo": "Administrateur : nettoie les comptes",
+    "userAttributes": ""
+   },
+   {
+    "resource": 16,
+    "aclFormula": "user.Access in [EDITOR] and newRec.Email and newRec.Email != user.Email.lower()",
+    "permissionsText": "-CU",
+    "rulePos": 35.25,
+    "memo": "Pas de compte au nom d’un autre",
+    "userAttributes": ""
+   },
+   {
+    "resource": 16,
+    "aclFormula": "user.Access in [EDITOR] and not newRec.Profil_valide",
+    "permissionsText": "-CU",
+    "rulePos": 35.75,
+    "memo": "On ne se rattache qu’à un profil créé soi-même, avec un email unique",
+    "userAttributes": ""
+   },
+   {
+    "resource": 12,
+    "aclFormula": "user.Access in [EDITOR] and newRec.Doublon_email",
+    "permissionsText": "-CU",
+    "rulePos": 30.25,
+    "memo": "Une adresse email = un seul profil",
+    "userAttributes": ""
+   },
+   {
+    "resource": 12,
+    "aclFormula": "user.Access in [EDITOR] and rec.Connecte and rec.Email != user.Email.lower()",
+    "permissionsText": "-U",
+    "rulePos": 30.375,
+    "memo": "Profil verrouillé dès la première connexion de son titulaire",
+    "userAttributes": ""
+   },
+   {
+    "resource": 13,
+    "aclFormula": "True",
+    "permissionsText": "-RU",
+    "rulePos": 5.875,
+    "memo": "Par défaut : rien",
+    "userAttributes": ""
+   },
+   {
+    "resource": 19,
+    "aclFormula": "user.Access in [OWNER]",
+    "permissionsText": "+CRUDS",
+    "rulePos": 36.5,
+    "memo": "Administrateur",
+    "userAttributes": ""
+   },
+   {
+    "resource": 19,
+    "aclFormula": "user.Access in [EDITOR, VIEWER]",
+    "permissionsText": "+R",
+    "rulePos": 36.75,
+    "memo": "Lecture pour tous",
+    "userAttributes": ""
+   },
+   {
+    "resource": 19,
+    "aclFormula": "True",
+    "permissionsText": "-CRUDS",
+    "rulePos": 36.875,
+    "memo": "Par défaut : rien",
+    "userAttributes": ""
+   }
+  ]
+ }
+}
