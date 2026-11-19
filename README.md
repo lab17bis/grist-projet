@@ -36,11 +36,11 @@ Un document Grist devient l'**espace commun d'une équipe** (un service, une dir
 
 Contrairement aux widgets de mise en page [grist-catalogue](https://github.com/lab17bis/grist-catalogue), [grist-questionnaire](https://github.com/lab17bis/grist-questionnaire) et [grist-graphique](https://github.com/lab17bis/grist-graphique), cet outil ne produit pas de page publique : il s'utilise **dans Grist**, et chaque personne doit y être connectée. Le document Grist est l'espace : on y invite les membres de l'équipe.
 
-Démonstration avec des données fictives (rien n'est enregistré) : <https://lab17bis.github.io/grist-projet/suivi-projets/>
+Démonstration avec des données fictives (rien n'est enregistré) : <https://lab17bis.github.io/grist-projet/v1/suivi-projets/>
 
 ## Le brancher en 3 minutes
 
-1. **Ajouter le widget** : dans un document Grist, même vide, ajoutez une page *Personnalisé* sur n'importe quelle table, avec l'adresse `https://lab17bis.github.io/grist-projet/suivi-projets/` et l'**accès complet au document**.
+1. **Ajouter le widget** : dans un document Grist, même vide, ajoutez une page *Personnalisé* sur n'importe quelle table, avec l'adresse `https://lab17bis.github.io/grist-projet/v1/suivi-projets/` et l'**accès complet au document**.
 2. **Installer** : le widget propose *Créer les tables*, ou *avec un exemple fictif*. Il crée les tables, leurs formules et les **règles d'accès** qui protègent les projets restreints (schéma : [`suivi-projets/schema.json`](suivi-projets/schema.json)). À faire par un propriétaire du document. Les tables existantes ne sont pas modifiées ; si le document a déjà des règles pour ces tables, elles ne sont pas remplacées.
 3. **Régler** : en bas du widget, ouvrez *Réglages du suivi*, puis enregistrez.
 4. **Inviter** les personnes dans le document (*Partager*), en éditeur pour les contributeurs, en lecteur pour la consultation.
@@ -73,6 +73,8 @@ Les réglages sont enregistrés en JSON dans la **description de la colonne `Con
 
 | Dossier ou fichier | Rôle |
 | --- | --- |
+| `v1/` | Version stable figée, servie à l'adresse `…/v1/`. Ne pas modifier à la main. |
+| `outils/figer-version.sh` | Copie la version en cours dans `vN/`. |
 | `suivi-projets/` | L'application : banque des projets, fiche projet, mon travail, déclaration, vue d'ensemble, réglages |
 | `suivi-projets/commun/` | En-tête et pied de page configurables, communs aux outils `grist-*` |
 | `docs/modele-de-donnees.md` | Tables, valeurs de référence et règles d'accès attendues |
@@ -92,6 +94,26 @@ Les réglages sont enregistrés en JSON dans la **description de la colonne `Con
 
 - Fonctionne uniquement dans Grist, avec des personnes connectées.
 - Aucun audit RGAA n'a été mené.
+
+## Version stable et version en cours
+
+Dans Grist, utilisez l'adresse de la **version stable** : `https://lab17bis.github.io/grist-projet/v1/suivi-projets/`. Elle ne change que pour corriger un défaut, sans toucher aux tables ni aux réglages. Une évolution qui les modifie paraît sous une nouvelle adresse (`v2/`) : les documents déjà en service restent sur `v1/` tant que vous ne changez pas l'adresse du widget.
+
+L'adresse sans numéro (`https://lab17bis.github.io/grist-projet/suivi-projets/`) suit la version en cours de développement. Elle sert à essayer les nouveautés ; ne l'utilisez pas pour un document en service.
+
+Pour figer une nouvelle version stable après des tests réussis : `sh outils/figer-version.sh 1` (ou `2` pour une version qui change les tables), puis publiez le dépôt.
+
+## Données partagées avec les autres outils
+
+Plusieurs outils de la même famille peuvent travailler dans un même document Grist. Ils suivent une règle commune pour ne pas dupliquer les données :
+
+- **Une seule table `Personnes`** par document. Colonne commune : `Nom`. Colonnes facultatives reconnues par tous : `Email` et `Structure` (référence à `Structures`). Un outil lit cette table si elle existe et la crée seulement si elle manque. Il n'y ajoute que ses propres colonnes.
+- **Une seule table `Structures`** pour les équipes, services ou établissements : `Nom`, `Sigle`, `Type`, `Parent` (structure de rattachement).
+- **Aucun outil ne supprime ni ne renomme** une table ou une colonne qu'il n'a pas créée.
+- **Les autres tables portent des noms propres à chaque outil**, pour éviter les collisions (par exemple `Actions` pour grist-projet, `Actions_reunion` pour grist-reunion). Les réglages sont rangés dans la description d'une colonne technique propre à l'outil (`Config_…`).
+- **Identifier la personne connectée** : un widget ne connaît pas l'adresse de la personne connectée. Les colonnes « créé par » utilisent une formule `user.Email` calculée à la création. Seul un outil qui doit relier la personne connectée à sa fiche crée la table `Comptes`.
+
+Ce que fait cet outil : Il crée `Personnes`, `Structures` et `Comptes` si elles manquent. Si `Personnes` ou `Structures` existent déjà, il les reprend et leur ajoute seulement ses colonnes (`Role`, `Email_saisi`…). Si `Email` est une colonne saisie et non une formule, il la garde telle quelle.
 
 ## Espaces clés en main
 

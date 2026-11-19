@@ -532,14 +532,14 @@
 
   function vueInstallation() {
     return '<h1 class="fr-h3">Installer l\'espace projets dans ce document</h1>' + blocAlerte() +
-      '<p>Le widget va créer ses tables (Projets, Actions, Journal, Documents, Personnes, Structures, Comptes, Parametres), leurs formules et les <strong>règles d\'accès</strong> qui protègent les projets restreints. Les tables existantes ne sont pas modifiées.</p>' +
+      '<p>Le widget va créer ses tables (Projets, Actions, Journal, Documents, Personnes, Structures, Comptes, Parametres), leurs formules et les <strong>règles d\'accès</strong> qui protègent les projets restreints. Si le document contient déjà une table Personnes ou Structures (créée par un autre outil), le widget la reprend et lui ajoute seulement les colonnes qui lui manquent : rien n\'est supprimé ni renommé.</p>' +
       '<p class="fr-text--sm">À faire par un propriétaire du document. Le widget doit avoir l\'accès complet au document. Si ce document a déjà des règles d\'accès, vérifiez-les ensuite dans <em>Permissions avancées</em>.</p>' +
       '<ul class="fr-btns-group fr-btns-group--inline-md"><li><button type="button" class="fr-btn" data-installer="vide">Créer les tables</button></li>' +
       '<li><button type="button" class="fr-btn fr-btn--secondary" data-installer="exemple">Créer les tables avec un exemple fictif</button></li></ul>';
   }
 
   function installer(exemple) {
-    var sch, ordre;
+    var sch, ordre, complements = [];
     function metaFraiche() {
       return Promise.all([grist.docApi.fetchTable('_grist_Tables'), grist.docApi.fetchTable('_grist_Tables_column')]).then(function (m) {
         return { tables: lignesDepuisColonnes(m[0]), cols: lignesDepuisColonnes(m[1]) };
@@ -549,8 +549,11 @@
     function estRef(c) { return /^Ref(List)?:/.test(c.type); }
     return fetch('schema.json').then(function (r) { return r.json(); }).then(function (j) {
       sch = j; ordre = Object.keys(sch.tables).filter(function (t) { return !aTable(t); });
+      // Tables partagées déjà présentes (Personnes, Structures… créées par un autre outil) :
+      // on les garde telles quelles et on ajoute seulement les colonnes qui leur manquent.
+      complements = colonnesManquantes(sch);
       // 1. Tables avec leurs colonnes simples (ni référence, ni formule).
-      return grist.docApi.applyUserActions(ordre.map(function (t) {
+      var a1 = ordre.map(function (t) {
         return ['AddTable', t, sch.tables[t].filter(function (c) { return !estRef(c) && !c.isFormula; }).map(function (c) {
           var o = { id: c.id, type: c.type, isFormula: false };
           if (c.label) o.label = c.label;
@@ -558,22 +561,35 @@
           if (c.widgetOptions) o.widgetOptions = opts(c);
           return o;
         })];
-      }));
+      });
+      complements.filter(function (m) { return !estRef(m.c) && !m.c.isFormula; }).forEach(function (m) {
+        a1.push(['AddColumn', m.table, m.c.id, { type: m.c.type, isFormula: false, formula: m.c.formula || '', label: m.c.label || m.c.id, widgetOptions: opts(m.c) }]);
+      });
+      return a1.length ? grist.docApi.applyUserActions(a1) : null;
     }).then(function () {
       // 2. Références, puis formules : toutes les tables existent désormais.
       var a = [];
       ordre.forEach(function (t) { sch.tables[t].filter(estRef).forEach(function (c) {
         a.push(['AddColumn', t, c.id, { type: c.type, isFormula: !!c.isFormula, formula: c.formula || '', label: c.label || c.id, widgetOptions: opts(c) }]);
       }); });
+      complements.filter(function (m) { return estRef(m.c); }).forEach(function (m) {
+        a.push(['AddColumn', m.table, m.c.id, { type: m.c.type, isFormula: !!m.c.isFormula, formula: m.c.formula || '', label: m.c.label || m.c.id, widgetOptions: opts(m.c) }]);
+      });
       ordre.forEach(function (t) { sch.tables[t].filter(function (c) { return !estRef(c) && c.isFormula; }).forEach(function (c) {
         a.push(['AddColumn', t, c.id, { type: c.type, isFormula: true, formula: c.formula || '', label: c.label || c.id, widgetOptions: opts(c) }]);
       }); });
+      complements.filter(function (m) { return !estRef(m.c) && m.c.isFormula; }).forEach(function (m) {
+        a.push(['AddColumn', m.table, m.c.id, { type: m.c.type, isFormula: true, formula: m.c.formula || '', label: m.c.label || m.c.id, widgetOptions: opts(m.c) }]);
+      });
       return a.length ? grist.docApi.applyUserActions(a) : null;
     }).then(metaFraiche).then(function (m) {
       // 3. Libellés affichés des références et dépendances des formules de déclenchement.
       function col(t, c) { var tb = m.tables.filter(function (x) { return x.tableId === t; })[0]; return tb && m.cols.filter(function (x) { return x.parentId === tb.id && x.colId === c; })[0]; }
       var a = [];
-      ordre.forEach(function (t) { sch.tables[t].forEach(function (c) {
+      var ajoutees = {};
+      complements.forEach(function (m) { (ajoutees[m.table] = ajoutees[m.table] || {})[m.c.id] = 1; });
+      Object.keys(sch.tables).forEach(function (t) { sch.tables[t].forEach(function (c) {
+        if (ordre.indexOf(t) < 0 && !(ajoutees[t] && ajoutees[t][c.id])) return;
         var moi = col(t, c.id);
         if (!moi) return;
         if (c.visibleCol && estRef(c)) {

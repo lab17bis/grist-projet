@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="fr" data-fr-theme="light">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Suivi des projets</title>
+  <link rel="stylesheet" href="../vendor/dsfr/dsfr.min.css">
+  <link rel="stylesheet" href="../vendor/dsfr/utility/icons/icons.min.css">
+  <link rel="stylesheet" href="commun/page.css?v=2">
+  <link rel="stylesheet" href="app.css?v=8">
+  <script src="https://docs.getgrist.com/grist-plugin-api.js"></script>
+</head>
+<body>
+  <div id="entete"></div>
+
+  <div id="sp-demo" class="fr-notice fr-notice--info" hidden>
+    <div class="fr-container--fluid sp-marge">
+      <div class="fr-notice__body">
+        <p class="fr-notice__title">Mode démonstration : données fictives, rien n'est enregistré.</p>
+      </div>
+    </div>
+  </div>
+
+  <main id="sp-app" class="sp-marge" aria-live="polite">
+    <p>Chargement…</p>
+  </main>
+
+  <div id="pied"></div>
+  <div class="sp-pied sp-marge">
+    <a class="fr-link fr-text--sm" href="#/reglages">Réglages du suivi</a>
+    <div class="sp-pied__theme">
+      <label class="fr-label" for="sp-theme">Thème</label>
+      <select class="fr-select fr-select--sm" id="sp-theme">
+        <option value="auto">Automatique</option>
+        <option value="light">Clair</option>
+        <option value="dark">Sombre</option>
+      </select>
+    </div>
+  </div>
+
+  <script src="commun/page-dsfr.js?v=2"></script>
+  <script src="commun/page-editeur.js?v=1"></script>
+  <script src="app.js?v=14"></script>
+</body>
+</html>
