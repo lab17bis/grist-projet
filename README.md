@@ -73,13 +73,20 @@ Les réglages sont enregistrés en JSON dans la **description de la colonne `Con
 - Fonctionne uniquement dans Grist, avec des personnes connectées.
 - Aucun audit RGAA n'a été mené.
 
+## Espaces clés en main
+
+Ce widget est déjà assemblé, avec d'autres, dans des **espaces** : des documents Grist complets à importer en une fois, vides ou avec un exemple fictif.
+
+- [espace-pilotage](https://github.com/lab17bis/espace-pilotage) : piloter une équipe : management visuel, réunions, projets et indicateurs.
+- [espace-collaboratif](https://github.com/lab17bis/espace-collaboratif) : travailler ensemble : réunions, projets partagés et ressources communes.
+
 ## Autres outils de la même famille
 
 - [grist-catalogue](https://github.com/lab17bis/grist-catalogue) : widget de mise en page pour Grist, catalogue public de fiches au DSFR.
 - [grist-questionnaire](https://github.com/lab17bis/grist-questionnaire) : widget de mise en page pour Grist, questionnaires au DSFR avec logique conditionnelle.
 - [grist-graphique](https://github.com/lab17bis/grist-graphique) : widget de mise en page pour Grist, tableaux de bord et graphiques au DSFR.
 - [grist-reunion](https://github.com/lab17bis/grist-reunion) : widget-outil pour Grist, ordre du jour, notes, décisions, actions et compte rendu de réunion.
-- [grist-management](https://github.com/lab17bis/grist-management) : widget-outil pour Grist, espace de management visuel qui assemble les autres outils.
+- [grist-management](https://github.com/lab17bis/grist-management) : widget-outil pour Grist, écran de management visuel d'équipe (météo, signalements, escalade), qui affiche aussi les données des autres widgets.
 
 Ils partagent les mêmes réglages d'en-tête et de pied de page.
 
