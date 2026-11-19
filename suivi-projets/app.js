@@ -1773,7 +1773,7 @@
         if (r.avant) pos = (dela.length ? dela[0].rulePos : 1) - (r.rulePos % 1 === 0.5 ? 0.5 : 0.25);
         else {
           var i = -1;
-          dela.forEach(function (y, k) { if (y.memo === r.apres) i = k; });
+          dela.forEach(function (y, k) { if (i < 0 && y.memo === r.apres) i = k; });
           if (i < 0) return;
           pos = dela[i + 1] ? (dela[i].rulePos + dela[i + 1].rulePos) / 2 : dela[i].rulePos + 0.5;
         }
