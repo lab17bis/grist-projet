@@ -82,7 +82,8 @@
   var etat = {
     filtres: { q: '', structure: '', phase: '', etat: '', archives: false, tri: 'activite' },
     onglet: 'presentation',
-    modePlan: 'liste',   // affichage du plan d'action : liste | kanban | calendrier
+    modePlan: 'liste',   // affichage du plan d'action : liste | kanban | chronologie
+    editionAction: null, // action dont le formulaire de modification est ouvert
     pilotage: { structure: '', archives: false },
     form: null,          // valeurs du formulaire projet en cours d'édition
     formCle: null,       // route qui a initialisé le formulaire
@@ -344,7 +345,10 @@
 
   // Calculs faits par Grist ; refaits ici seulement s'ils manquent (mode démo).
   function completerProjet(p) {
-    var acts = actionsDu(p.id).filter(function (a) { return a.Etat !== 'Abandonné'; });
+    var tous = actionsDu(p.id);
+    var acts = tous.filter(function (a) {
+      return a.Etat !== 'Abandonné' && a.Type !== 'Jalon' && !tous.some(function (x) { return num(x.Parent) === a.id; });
+    });
     if (p.Avancement === undefined) {
       p.Avancement = acts.length ? Math.round(100 * acts.filter(function (a) { return a.Etat === 'Fait'; }).length / acts.length) : null;
     }
@@ -650,7 +654,7 @@
     else if (r.vue === 'travail') html = vueTravail();
     else if (r.vue === 'reglages') html = vueReglages();
     else html = vueBanque();
-    app.innerHTML = html + piedContact(r);
+    app.innerHTML = bandeauMiseAJour() + html + piedContact(r);
     if (r.vue === 'reglages') monterReglages();
   }
 
@@ -698,7 +702,7 @@
       });
       h += '</div>';
     });
-    h += '</section><section><h2 class="fr-h5">Autres réglages</h2>' +
+    h += '</section>' + sectionRoles() + '<section><h2 class="fr-h5">Autres réglages</h2>' +
       '<div class="fr-input-group"><label class="fr-label" for="rg-domaine">Domaine des adresses électroniques<span class="fr-hint-text">Sert à suggérer l\'adresse d\'un collègue (prénom.nom@domaine). Exemple : mon-administration.fr. Vide : pas de suggestion.</span></label>' +
       '<input class="fr-input" id="rg-domaine" data-reglage="domaineCourriel" value="' + esc(b.domaineCourriel || '') + '"></div>' +
       '<div class="fr-input-group"><label class="fr-label" for="rg-jours">Alerte « projet à relancer » après (jours sans activité)</label>' +
@@ -707,6 +711,32 @@
       '<ul class="fr-btns-group fr-btns-group--inline-md"><li><button type="button" class="fr-btn" data-action="enregistrer-reglages">Enregistrer les réglages</button></li>' +
       '<li><button type="button" class="fr-btn fr-btn--secondary" data-action="annuler-reglages">Annuler les modifications</button></li></ul>';
     return h;
+  }
+
+  // Rôle « Administration » : voit et gère tous les projets, y compris restreints. Attribué par les propriétaires.
+  var rolesBrouillon = {};
+  function sectionRoles() {
+    if (!aColonne('Personnes', 'Role')) {
+      return '<section><h2 class="fr-h5">Rôle « Administration »</h2><p class="fr-text--sm">Mettez d\'abord le document à jour (bandeau en haut de page).</p></section>';
+    }
+    var personnes = personnesTriees();
+    var h = '<section><h2 class="fr-h5">Rôle « Administration »</h2>' +
+      '<p class="fr-text--sm">Les personnes cochées voient et gèrent tous les projets, y compris les projets restreints. Les autres voient les projets ouverts et ceux où elles sont désignées. ' +
+      'La personne est reconnue par l\'adresse électronique de sa fiche, qui doit être celle de son compte Grist.</p>';
+    if (!personnes.length) return h + '<p class="sp-vide">Aucune personne dans l\'annuaire.</p></section>';
+    h += '<fieldset class="fr-fieldset" aria-labelledby="rg-roles-leg"><legend class="fr-fieldset__legend fr-sr-only" id="rg-roles-leg">Personnes en Administration</legend>';
+    personnes.forEach(function (x) {
+      var coche = (rolesBrouillon[x.id] || x.Role) === 'Administration';
+      h += '<div class="fr-fieldset__element"><div class="fr-checkbox-group fr-checkbox-group--sm"><input type="checkbox" id="rg-role-' + x.id + '" data-role="' + x.id + '"' + (coche ? ' checked' : '') + '>' +
+        '<label class="fr-label" for="rg-role-' + x.id + '">' + esc(x.Nom || 'Sans nom') + (emailDe(x) ? '<span class="fr-hint-text">' + esc(emailDe(x)) + '</span>' : '<span class="fr-hint-text">Sans adresse : ne peut pas être reconnue</span>') + '</label></div></div>';
+    });
+    return h + '</fieldset><button type="button" class="fr-btn fr-btn--secondary fr-btn--sm" data-action="enregistrer-roles">Enregistrer les rôles</button></section>';
+  }
+  function enregistrerRoles() {
+    var ids = Object.keys(rolesBrouillon).map(num).filter(function (id) { return idx.Personnes[id] && (idx.Personnes[id].Role || 'Membre') !== rolesBrouillon[id]; });
+    if (!ids.length) { etat.alerte = { type: 'info', texte: 'Aucun rôle modifié.' }; rendre(); return; }
+    executer([['BulkUpdateRecord', 'Personnes', ids, { Role: ids.map(function (id) { return rolesBrouillon[id]; }) }]], 'Rôles enregistrés.', function () { rolesBrouillon = {}; },
+      'Grist a refusé l\'enregistrement : seuls les propriétaires du document attribuent le rôle « Administration ».');
   }
 
   function monterReglages() {
@@ -1006,53 +1036,257 @@
       'data-action="demander-suppression" data-table="' + table + '" data-id="' + id + '">Supprimer</button>';
   }
 
+  // --- Plan d'action : arborescence, jalons, dépendances ----------------------
+
+  function actionFinie(a) { return ETATS_ACTION.slice(-2).indexOf(a.Etat) !== -1; }
+  function estJalon(a) { return a.Type === 'Jalon'; }
+  function dateJalon(a) { return a.Fin || a.Debut || null; }
+  function dependances(a) {
+    return liste(a.Depend_de).map(num).map(function (i) { return idx.Actions[i]; }).filter(Boolean);
+  }
+  function bloqueePar(a) {
+    if (actionFinie(a)) return [];
+    return dependances(a).filter(function (d) { return !actionFinie(d); });
+  }
+  function actionEnRetard(a) {
+    var f = estJalon(a) ? dateJalon(a) : a.Fin;
+    return !actionFinie(a) && !!f && f < aujourdhuiSec();
+  }
+  function sousActions(id) { return (data.Actions || []).filter(function (a) { return num(a.Parent) === id; }); }
+  function descendantsAction(id, vus) {
+    vus = vus || {};
+    var r = [];
+    sousActions(id).forEach(function (a) {
+      if (vus[a.id]) return;
+      vus[a.id] = true;
+      r.push(a.id);
+      r = r.concat(descendantsAction(a.id, vus));
+    });
+    return r;
+  }
+  // Actions qui attendent (directement ou en chaîne) celle-ci : elles ne peuvent pas devenir ses prérequis.
+  function attendentAction(id) {
+    var r = [], file = [id];
+    while (file.length) {
+      var x = file.shift();
+      (data.Actions || []).forEach(function (a) {
+        if (liste(a.Depend_de).map(num).indexOf(x) !== -1 && r.indexOf(a.id) === -1 && a.id !== id) { r.push(a.id); file.push(a.id); }
+      });
+    }
+    return r;
+  }
+  function cleTriAction(a) { return a.Debut || a.Fin || 9e12; }
+  // Ordre d'affichage : chaque action suivie de ses sous-actions, à tout niveau.
+  function arbreActions(acts) {
+    var ids = acts.map(function (a) { return a.id; });
+    var parParent = {};
+    acts.forEach(function (a) {
+      var k = ids.indexOf(num(a.Parent)) !== -1 ? num(a.Parent) : 0;
+      (parParent[k] = parParent[k] || []).push(a);
+    });
+    var sortie = [], vus = {};
+    (function parcourir(k, niveau) {
+      (parParent[k] || []).slice().sort(function (a, b) { return (cleTriAction(a) - cleTriAction(b)) || (a.id - b.id); })
+        .forEach(function (a) {
+          if (vus[a.id]) return;
+          vus[a.id] = true;
+          sortie.push({ a: a, niveau: niveau });
+          parcourir(a.id, niveau + 1);
+        });
+    })(0, 0);
+    acts.forEach(function (a) { if (!vus[a.id]) sortie.push({ a: a, niveau: 0 }); });
+    return sortie;
+  }
+  function progresSousActions(a) {
+    var s = sousActions(a.id).filter(function (x) { return x.Etat !== 'Abandonné'; });
+    if (!s.length) return null;
+    return { faites: s.filter(function (x) { return x.Etat === 'Fait'; }).length, total: s.length };
+  }
+  function badgesAction(a) {
+    var b = [];
+    if (estJalon(a)) b.push(badge('Jalon', 'purple-glycine', true));
+    var bl = bloqueePar(a);
+    if (bl.length) b.push(badge('En attente de : ' + bl.map(function (d) { return d.Intitule || 'sans titre'; }).join(', '), 'warning', true));
+    if (actionEnRetard(a)) b.push(badge('En retard', 'error', true));
+    var pr = progresSousActions(a);
+    if (pr) b.push(badge(pr.faites + '/' + pr.total + ' sous-action' + (pr.total > 1 ? 's' : '') + ' faite' + (pr.faites > 1 ? 's' : ''), pr.faites === pr.total ? 'success' : 'info', true));
+    return b.length ? '<span class="sp-badges-ligne">' + b.join(' ') + '</span>' : '';
+  }
+  function datesAction(a) { return estJalon(a) ? dateTexte(dateJalon(a)) : periodeTexte(a.Debut, a.Fin); }
+  // Colonnes présentes dans le document (un document pas encore mis à jour n'a pas les nouvelles).
+  function aColonne(table, col) {
+    if (DEMO || !meta.lu) return true;
+    var t = (meta.tables || []).filter(function (x) { return x.tableId === table; })[0];
+    return !!t && (meta.colonnes || []).some(function (c) { return c.parentId === t.id && c.colId === col; });
+  }
+  function seulementColonnes(table, champs) {
+    Object.keys(champs).forEach(function (k) { if (!aColonne(table, k)) delete champs[k]; });
+    return champs;
+  }
+  function champDate(id, libelle, valeur, attrs) {
+    return '<div class="fr-input-group"><label class="fr-label" for="' + id + '">' + esc(libelle) + '</label>' +
+      '<input class="fr-input" type="date" id="' + id + '" value="' + esc(valeur || '') + '" ' + (attrs || '') + '></div>';
+  }
+  function optionsActions(lignes) {
+    return lignes.map(function (x) { return { v: x.a.id, t: new Array(x.niveau + 1).join('— ') + (x.a.Intitule || 'Sans titre') }; });
+  }
+  var TYPES_ACTION = [{ v: 'Action', t: 'Action' }, { v: 'Jalon', t: 'Jalon (une date clé)' }];
+
   function ongletPlan(p, acts) {
-    var b = brouillon('action-' + p.id);
-    var html = '<form class="sp-ajout" data-form="action" data-projet="' + p.id + '">' +
-      '<div class="fr-input-group"><label class="fr-label" for="a-intitule">Nouvelle action</label>' +
-      '<input class="fr-input" id="a-intitule" data-brouillon="action-' + p.id + '" data-champ="Intitule" value="' + esc(b.Intitule || '') + '" required></div>' +
-      champSelect('a-resp', 'Responsable', b.Responsable || '', optionsPersonnes(b.Responsable, p),
-        'data-brouillon="action-' + p.id + '" data-champ="Responsable"', 'Non attribuée') +
-      '<div class="fr-input-group"><label class="fr-label" for="a-debut">Début</label>' +
-      '<input class="fr-input" type="date" id="a-debut" data-brouillon="action-' + p.id + '" data-champ="Debut" value="' + esc(b.Debut || '') + '"></div>' +
-      '<div class="fr-input-group"><label class="fr-label" for="a-fin">Fin</label>' +
-      '<input class="fr-input" type="date" id="a-fin" data-brouillon="action-' + p.id + '" data-champ="Fin" value="' + esc(b.Fin || '') + '"></div>' +
+    var cle = 'action-' + p.id, b = brouillon(cle);
+    var jalon = b.Type === 'Jalon';
+    var parents = arbreActions(acts).filter(function (x) { return !estJalon(x.a); });
+    var attrs = function (c) { return 'data-brouillon="' + cle + '" data-champ="' + c + '"'; };
+    var html = '<form class="sp-ajout sp-ajout--plan" data-form="action" data-projet="' + p.id + '" id="sp-ajout-action">' +
+      '<div class="fr-input-group sp-ajout__titre"><label class="fr-label" for="a-intitule">' +
+      (num(b.Parent) ? 'Nouvelle sous-action de « ' + esc((idx.Actions[num(b.Parent)] || {}).Intitule || '') + ' »' : 'Nouvelle action ou nouveau jalon') + '</label>' +
+      '<input class="fr-input" id="a-intitule" ' + attrs('Intitule') + ' value="' + esc(b.Intitule || '') + '" required></div>' +
+      champSelect('a-type', 'Type', b.Type || 'Action', TYPES_ACTION, attrs('Type') + ' data-rafraichir', false) +
+      (parents.length ? champSelect('a-parent', 'Rattachée à', b.Parent || '', optionsActions(parents), attrs('Parent') + ' data-rafraichir', 'Aucune (action principale)') : '') +
+      champSelect('a-resp', 'Responsable', b.Responsable || '', optionsPersonnes(b.Responsable, p), attrs('Responsable'), 'Non attribuée') +
+      (jalon ? '' : champDate('a-debut', 'Début', b.Debut, attrs('Debut'))) +
+      champDate('a-fin', jalon ? 'Date du jalon' : 'Fin', b.Fin, attrs('Fin')) +
       '<button class="fr-btn fr-icon-add-line fr-btn--icon-left" type="submit">Ajouter</button></form>';
 
-    if (!acts.length) return html + '<p class="sp-vide">Aucune action pour l\'instant.</p>';
-
-    html += selecteurMode('plan', etat.modePlan, [
-      ['liste', 'Liste'], ['kanban', 'Kanban'], ['calendrier', 'Calendrier']
-    ], "Affichage du plan d'action");
-
-    if (etat.modePlan === 'kanban') return html + kanbanActions(acts);
-    if (etat.modePlan === 'calendrier') {
-      return html + gantt(acts.map(function (a) {
-        return {
-          libelle: a.Intitule, meta: nomPersonne(a.Responsable), debut: a.Debut, fin: a.Fin,
-          classe: 'sp-barre--' + classeEtat(a.Etat || 'À faire')
-        };
-      }), "Calendrier du plan d'action");
+    if (!acts.length) {
+      return html + '<p class="sp-vide">Aucune action pour l\'instant. Découpez le projet en actions, puis en sous-actions, et posez des jalons pour les dates clés.</p>';
     }
+    var faites = acts.filter(function (a) { return a.Etat === 'Fait'; }).length;
+    var attente = acts.filter(function (a) { return bloqueePar(a).length; }).length;
+    var retard = acts.filter(actionEnRetard).length;
+    html += '<div class="sp-plan__entete"><p class="fr-text--sm fr-mb-0">' + acts.length + ' élément' + (acts.length > 1 ? 's' : '') + ' · ' + faites + ' fait' + (faites > 1 ? 's' : '') +
+      (attente ? ' · <strong>' + attente + ' en attente</strong>' : '') + (retard ? ' · <strong>' + retard + ' en retard</strong>' : '') + '</p>' +
+      selecteurMode('plan', etat.modePlan === 'calendrier' ? 'chronologie' : etat.modePlan, [['liste', 'Liste'], ['kanban', 'Kanban'], ['chronologie', 'Chronologie']], "Affichage du plan d'action") + '</div>';
+    if (etat.modePlan === 'kanban') return html + kanbanActions(acts);
+    if (etat.modePlan === 'chronologie' || etat.modePlan === 'calendrier') return html + chronologieActions(acts);
+    return html + listeActions(p, acts);
+  }
 
-    var ordre = { 'En cours': 0, 'À faire': 1, 'Fait': 2, 'Abandonné': 3 };
-    acts = acts.slice().sort(function (a, c) {
-      return (ordre[a.Etat || 'À faire'] - ordre[c.Etat || 'À faire']) || ((a.Fin || 9e12) - (c.Fin || 9e12));
-    });
-
-    html += '<div class="sp-defile"><table class="sp-table"><thead><tr><th>Action</th><th>Responsable</th><th>Période</th><th>État</th><th><span class="fr-sr-only">Supprimer</span></th></tr></thead><tbody>';
-    acts.forEach(function (a) {
-      var periode = [dateTexte(a.Debut), dateTexte(a.Fin)].filter(Boolean).join(' → ');
-      html += '<tr class="' + (a.Etat === 'Fait' ? 'sp-table--fait' : '') + '">' +
-        '<td>' + esc(a.Intitule) + '</td>' +
-        '<td>' + esc(nomPersonne(a.Responsable)) + '</td>' +
-        '<td>' + esc(periode) + '</td>' +
-        '<td><label class="fr-sr-only" for="e-' + a.id + '">État de l\'action</label><select class="fr-select" id="e-' + a.id + '" data-etat-action="' + a.id + '">' +
-        ETATS_ACTION.map(function (e) { return '<option' + ((a.Etat || 'À faire') === e ? ' selected' : '') + '>' + esc(e) + '</option>'; }).join('') +
-        '</select></td>' +
-        '<td>' + boutonSuppression('Actions', a.id) + '</td></tr>';
+  function listeActions(p, acts) {
+    var html = '<div class="sp-defile"><table class="sp-table sp-plan"><thead><tr><th scope="col">Action</th><th scope="col">Responsable</th>' +
+      '<th scope="col">Dates</th><th scope="col">État</th><th scope="col"><span class="fr-sr-only">Gérer</span></th></tr></thead><tbody>';
+    arbreActions(acts).forEach(function (x) {
+      var a = x.a;
+      html += '<tr class="' + (actionFinie(a) ? 'sp-table--fait' : '') + (estJalon(a) ? ' sp-plan__ligne-jalon' : '') + '">' +
+        '<td><div class="sp-plan__titre" style="--sp-niveau:' + x.niveau + '">' +
+        (estJalon(a) ? '<span class="sp-losange" aria-hidden="true"></span>' : (x.niveau ? '<span class="sp-plan__branche" aria-hidden="true">↳</span>' : '')) +
+        '<span><span class="sp-plan__intitule">' + esc(a.Intitule || 'Sans titre') + '</span>' + badgesAction(a) +
+        (a.Notes ? '<span class="sp-plan__notes">' + esc(resumeCourt(a.Notes)) + '</span>' : '') + '</span></div></td>' +
+        '<td>' + esc(nomPersonne(a.Responsable)) + '</td><td class="sp-plan__dates">' + esc(datesAction(a)) + '</td>' +
+        '<td><label class="fr-sr-only" for="e-' + a.id + '">État de « ' + esc(a.Intitule) + ' »</label>' +
+        '<select class="fr-select sp-plan__etat" id="e-' + a.id + '" data-etat-action="' + a.id + '">' +
+        ETATS_ACTION.map(function (e) { return '<option' + ((a.Etat || ETATS_ACTION[0]) === e ? ' selected' : '') + '>' + esc(e) + '</option>'; }).join('') + '</select></td>' +
+        '<td><span class="sp-actions-ligne">' +
+        '<button type="button" class="fr-btn fr-btn--sm fr-btn--tertiary-no-outline fr-icon-edit-line" title="Modifier « ' + esc(a.Intitule) + ' »" data-action="editer-action" data-id="' + a.id + '"' + (etat.editionAction === a.id ? ' aria-expanded="true"' : '') + '>Modifier</button>' +
+        (estJalon(a) ? '' : '<button type="button" class="fr-btn fr-btn--sm fr-btn--tertiary-no-outline fr-icon-add-line" title="Ajouter une sous-action à « ' + esc(a.Intitule) + ' »" data-action="sous-action" data-id="' + a.id + '" data-projet="' + p.id + '">Ajouter une sous-action</button>') +
+        boutonSuppression('Actions', a.id) + '</span></td></tr>';
+      if (etat.editionAction === a.id) html += '<tr class="sp-plan__edition"><td colspan="5">' + formulaireAction(p, a, acts) + '</td></tr>';
     });
     return html + '</tbody></table></div>';
+  }
+
+  function formulaireAction(p, a, acts) {
+    var cle = 'edit-' + a.id;
+    var b = etat.brouillons[cle] || (etat.brouillons[cle] = {
+      Intitule: a.Intitule || '', Type: a.Type || 'Action', Parent: num(a.Parent) || '', Responsable: num(a.Responsable) || '',
+      Debut: dateVersSaisie(a.Debut), Fin: dateVersSaisie(a.Fin), Etat: a.Etat || ETATS_ACTION[0], Notes: a.Notes || '',
+      Depend_de: liste(a.Depend_de).map(num)
+    });
+    var exclus = [a.id].concat(descendantsAction(a.id));
+    var autres = acts.filter(function (x) { return exclus.indexOf(x.id) === -1; });
+    var nonPrerequis = attendentAction(a.id);
+    var prerequis = arbreActions(autres).filter(function (x) { return nonPrerequis.indexOf(x.a.id) === -1; });
+    var attrs = function (c) { return 'data-brouillon="' + cle + '" data-champ="' + c + '"'; };
+    var jalon = b.Type === 'Jalon';
+    var h = '<form class="sp-edition" data-form="edit-action" data-id="' + a.id + '" data-projet="' + p.id + '">' +
+      '<h4 class="fr-h6 fr-mb-2w">Modifier « ' + esc(a.Intitule || 'Sans titre') + ' »</h4><div class="sp-edition__grille">' +
+      '<div class="fr-input-group sp-edition__large"><label class="fr-label" for="ed-int-' + a.id + '">Intitulé</label>' +
+      '<input class="fr-input" id="ed-int-' + a.id + '" ' + attrs('Intitule') + ' value="' + esc(b.Intitule) + '" required></div>' +
+      champSelect('ed-type-' + a.id, 'Type', b.Type, TYPES_ACTION, attrs('Type') + ' data-rafraichir', false) +
+      champSelect('ed-par-' + a.id, 'Rattachée à', b.Parent, optionsActions(arbreActions(autres).filter(function (x) { return !estJalon(x.a); })), attrs('Parent'), 'Aucune (action principale)') +
+      champSelect('ed-resp-' + a.id, 'Responsable', b.Responsable, optionsPersonnes(b.Responsable, p), attrs('Responsable'), 'Non attribuée') +
+      champSelect('ed-etat-' + a.id, 'État', b.Etat, ETATS_ACTION, attrs('Etat'), false) +
+      (jalon ? '' : champDate('ed-deb-' + a.id, 'Début', b.Debut, attrs('Debut'))) +
+      champDate('ed-fin-' + a.id, jalon ? 'Date du jalon' : 'Fin', b.Fin, attrs('Fin')) + '</div>';
+    if (prerequis.length) {
+      h += '<fieldset class="fr-fieldset sp-edition__deps" id="ed-deps-' + a.id + '" aria-labelledby="ed-deps-leg-' + a.id + '">' +
+        '<legend class="fr-fieldset__legend fr-text--regular" id="ed-deps-leg-' + a.id + '">Dépend de' +
+        '<span class="fr-hint-text">Cochez ce qui doit être fait avant. Tant que ce n\'est pas fait, l\'action est signalée « en attente ».</span></legend>' +
+        prerequis.map(function (x) {
+          var id = 'ed-dep-' + a.id + '-' + x.a.id;
+          return '<div class="fr-fieldset__element"><div class="fr-checkbox-group fr-checkbox-group--sm">' +
+            '<input type="checkbox" id="' + id + '" data-dep="' + cle + '" value="' + x.a.id + '"' + (b.Depend_de.indexOf(x.a.id) !== -1 ? ' checked' : '') + '>' +
+            '<label class="fr-label" for="' + id + '">' + esc(new Array(x.niveau + 1).join('— ') + (x.a.Intitule || 'Sans titre')) + (estJalon(x.a) ? ' (jalon)' : '') + '</label></div></div>';
+        }).join('') + '</fieldset>';
+    }
+    h += '<div class="fr-input-group"><label class="fr-label" for="ed-notes-' + a.id + '">Notes<span class="fr-hint-text">Précisions, liens, critères de réussite…</span></label>' +
+      '<textarea class="fr-input" rows="3" id="ed-notes-' + a.id + '" ' + attrs('Notes') + '>' + esc(b.Notes) + '</textarea></div>' +
+      '<ul class="fr-btns-group fr-btns-group--inline-sm fr-btns-group--sm"><li><button class="fr-btn" type="submit">Enregistrer</button></li>' +
+      '<li><button type="button" class="fr-btn fr-btn--secondary" data-action="annuler-edition">Annuler</button></li></ul></form>';
+    return h;
+  }
+
+  function enregistrerAction(aid) {
+    var b = etat.brouillons['edit-' + aid] || {};
+    if (!String(b.Intitule || '').trim()) {
+      etat.alerte = { type: 'error', texte: 'Donnez un intitulé à l\'action.' };
+      rendre();
+      return;
+    }
+    var jalon = b.Type === 'Jalon';
+    var deps = (b.Depend_de || []).filter(function (x) { return x !== aid; });
+    var champs = seulementColonnes('Actions', {
+      Intitule: String(b.Intitule).trim(), Type: b.Type || 'Action', Parent: num(b.Parent), Responsable: num(b.Responsable),
+      Debut: jalon ? null : saisieVersDate(b.Debut), Fin: saisieVersDate(b.Fin), Etat: b.Etat || ETATS_ACTION[0],
+      Notes: b.Notes || '', Depend_de: deps.length ? versListe(deps) : null
+    });
+    executer([['UpdateRecord', 'Actions', aid, champs]], 'Action enregistrée.', function () {
+      delete etat.brouillons['edit-' + aid];
+      etat.editionAction = null;
+    });
+  }
+
+  // Supprimer une action : ses sous-actions remontent d'un niveau, les dépendances vers elle sont retirées.
+  function actionsSuppressionAction(id) {
+    var a = idx.Actions[id];
+    var res = [];
+    if (a && aColonne('Actions', 'Parent')) {
+      sousActions(id).forEach(function (s) { res.push(['UpdateRecord', 'Actions', s.id, { Parent: num(a.Parent) }]); });
+    }
+    if (aColonne('Actions', 'Depend_de')) {
+      (data.Actions || []).forEach(function (x) {
+        var d = liste(x.Depend_de).map(num);
+        if (d.indexOf(id) !== -1) {
+          var reste = d.filter(function (y) { return y !== id; });
+          res.push(['UpdateRecord', 'Actions', x.id, { Depend_de: reste.length ? versListe(reste) : null }]);
+        }
+      });
+    }
+    res.push(['RemoveRecord', 'Actions', id]);
+    return res;
+  }
+
+  function kanbanActions(acts) {
+    var cartes = acts.map(function (a) { return Object.assign({ _colonne: a.Etat || ETATS_ACTION[0] }, a); });
+    return kanban(ETATS_ACTION, cartes, 'Actions', 'Etat', function (a) {
+      var parent = idx.Actions[num(a.Parent)];
+      var meta = [nomPersonne(a.Responsable), datesAction(a)].filter(Boolean).join(' · ');
+      return (parent ? '<p class="sp-ticket__parent">↳ ' + esc(parent.Intitule) + '</p>' : '') +
+        '<p class="sp-ticket__titre">' + (estJalon(a) ? '<span class="sp-losange" aria-hidden="true"></span>' : '') + esc(a.Intitule) + '</p>' +
+        (meta ? '<p class="sp-ticket__meta">' + esc(meta) + '</p>' : '') + badgesAction(a);
+    });
+  }
+
+  function chronologieActions(acts) {
+    return gantt(arbreActions(acts).map(function (x) {
+      var a = x.a, deps = dependances(a);
+      return {
+        libelle: a.Intitule || 'Sans titre', niveau: x.niveau, jalon: estJalon(a),
+        meta: [nomPersonne(a.Responsable), deps.length ? 'après : ' + deps.map(function (d) { return d.Intitule; }).join(', ') : ''].filter(Boolean).join(' · '),
+        debut: estJalon(a) ? null : a.Debut, fin: estJalon(a) ? dateJalon(a) : a.Fin,
+        classe: 'sp-barre--' + (bloqueePar(a).length ? 'attente' : classeEtat(a.Etat || ETATS_ACTION[0]))
+      };
+    }), "Chronologie du plan d'action", true);
   }
 
   function ongletJournal(p, jour) {
@@ -1188,7 +1422,8 @@
         '<div class="sp-defile"><table class="sp-table"><thead><tr><th>Action</th><th>Projet</th><th>Période</th><th>État</th></tr></thead><tbody>' +
         l.map(function (a) {
           var p = idx.Projets[num(a.Projet)];
-          return '<tr><td>' + esc(a.Intitule) + '</td><td><a href="#/projet/' + p.id + '">' + esc(p.Titre) + '</a></td>' +
+          var par = idx.Actions[num(a.Parent)];
+          return '<tr><td>' + (par ? '<span class="sp-ticket__parent">↳ ' + esc(par.Intitule) + '</span> ' : '') + esc(a.Intitule) + badgesAction(a) + '</td><td><a href="#/projet/' + p.id + '">' + esc(p.Titre) + '</a></td>' +
             '<td>' + esc(periodeTexte(a.Debut, a.Fin)) + '</td>' +
             '<td><label class="fr-sr-only" for="mt-' + a.id + '">État de l\'action</label><select class="fr-select" id="mt-' + a.id + '" data-etat-action="' + a.id + '">' +
             ETATS_ACTION.map(function (e) { return '<option' + (e === (a.Etat || ETATS_ACTION[0]) ? ' selected' : '') + '>' + esc(e) + '</option>'; }).join('') + '</select></td></tr>';
@@ -1233,11 +1468,12 @@
       var moi = idx.Personnes[m.profil];
       var f = etat.profilForm || (etat.profilForm = { Nom: moi.Nom || '', Structure: num(moi.Structure) || '' });
       return html + '<h1 class="fr-h3">Mon profil</h1>' +
+        (moi.Role === 'Administration' ? '<p>' + badge('Administration', 'purple-glycine') + ' Vous voyez et gérez tous les projets, y compris les projets restreints.</p>' : '') +
         '<p>Ce profil est lié à votre adresse <strong>' + esc(m.email) + '</strong>. Vos collègues le choisissent pour vous désigner porteur ou membre d\'une équipe : ' +
         'vous obtenez alors les droits correspondants sur le projet.</p>' +
         '<form novalidate data-form="mon-profil" class="sp-form-court">' +
         champProfil('pr-nom', 'Nom', 'Nom et prénom', 'Écrivez votre nom de famille en majuscules, par exemple : MARTIN Claire.', f.Nom) +
-        champSelect('pr-structure', 'Structure de rattachement', f.Structure, structures, 'data-profil="Structure"', 'Choisir une structure') +
+        champSelect('pr-structure', 'Structure de rattachement (facultatif)', f.Structure, structures, 'data-profil="Structure"', 'Choisir une structure') +
         '<button class="fr-btn" type="submit">Enregistrer</button></form>';
     }
     var g = etat.profilForm || (etat.profilForm = { Nom: '', Structure: '' });
@@ -1247,7 +1483,7 @@
     html += '<section class="sp-bloc"><h2 class="fr-h5">Créez votre profil</h2>' +
       '<form novalidate data-form="mon-profil" class="sp-form-court">' +
       champProfil('pr-nom', 'Nom', 'Nom et prénom', 'Écrivez votre nom de famille en majuscules, par exemple : MARTIN Claire.', g.Nom) +
-      champSelect('pr-structure', 'Structure de rattachement', g.Structure, structures, 'data-profil="Structure"', 'Choisir une structure') +
+      champSelect('pr-structure', 'Structure de rattachement (facultatif)', g.Structure, structures, 'data-profil="Structure"', 'Choisir une structure') +
       '<ul class="fr-btns-group fr-btns-group--inline-md"><li><button class="fr-btn" type="submit">Créer mon profil</button></li>' +
       '<li><a class="fr-btn fr-btn--tertiary" href="#/">Plus tard</a></li></ul></form></section>';
     return html;
@@ -1267,8 +1503,8 @@
     var f = etat.profilForm || {};
     var nom = String(f.Nom || '').trim();
     var structure = num(f.Structure);
-    if (!nom || !structure) {
-      etat.alerte = { type: 'error', texte: 'Indiquez votre nom et votre structure de rattachement.' };
+    if (!nom) {
+      etat.alerte = { type: 'error', texte: 'Indiquez votre nom.' };
       rendre();
       return;
     }
@@ -1336,19 +1572,10 @@
     }).join('') + '</div>';
   }
 
-  function kanbanActions(acts) {
-    var cartes = acts.map(function (a) { return Object.assign({ _colonne: a.Etat || 'À faire' }, a); });
-    return kanban(ETATS_ACTION, cartes, 'Actions', 'Etat', function (a) {
-      var meta = [nomPersonne(a.Responsable), periodeTexte(a.Debut, a.Fin)].filter(Boolean).join(' · ');
-      return '<p class="sp-ticket__titre">' + esc(a.Intitule) + '</p>' +
-        (meta ? '<p class="sp-ticket__meta">' + esc(meta) + '</p>' : '');
-    });
-  }
-
   var MOIS = ['janv.', 'févr.', 'mars', 'avr.', 'mai', 'juin', 'juil.', 'août', 'sept.', 'oct.', 'nov.', 'déc.'];
 
   // Calendrier (diagramme de Gantt) : items = { libelle, lien?, meta?, debut, fin, classe }
-  function gantt(items, titre) {
+  function gantt(items, titre, garderOrdre) {
     var dates = [];
     items.forEach(function (it) { if (it.debut) dates.push(it.debut); if (it.fin) dates.push(it.fin); });
     var sansDate = items.filter(function (it) { return !it.debut && !it.fin; });
@@ -1377,20 +1604,20 @@
     }).join('');
     var repere = '<span class="sp-gantt__jour" style="left:' + pct(aujourdHui) + '%" title="Aujourd\'hui"></span>';
 
-    var lignes = items.filter(function (it) { return it.debut || it.fin; }).sort(function (a, b) {
-      return (a.debut || a.fin) - (b.debut || b.fin);
-    }).map(function (it) {
+    var avecDate = items.filter(function (it) { return it.debut || it.fin; });
+    if (!garderOrdre) avecDate.sort(function (a, b) { return (a.debut || a.fin) - (b.debut || b.fin); });
+    var lignes = avecDate.map(function (it) {
       var a = it.debut || it.fin, b = it.fin || it.debut;
       if (b < a) { var t = a; a = b; b = t; }
-      var jalon = !it.debut || !it.fin;
-      var periode = periodeTexte(it.debut, it.fin);
+      var jalon = it.jalon || !it.debut || !it.fin;
+      var periode = it.jalon ? dateTexte(it.fin || it.debut) : periodeTexte(it.debut, it.fin);
       var forme = jalon
-        ? '<span class="sp-gantt__jalon ' + (it.classe || '') + '" style="left:' + pct(a) + '%"></span>'
+        ? '<span class="sp-gantt__jalon ' + (it.classe || '') + (it.jalon ? ' sp-gantt__jalon--cle' : '') + '" style="left:' + pct(a) + '%"></span>'
         : '<span class="sp-gantt__barre ' + (it.classe || '') + '" style="left:' + pct(a) + '%;width:' +
           Math.max(0.8, 100 * (b - a + 86400) / duree).toFixed(3) + '%"></span>';
       var lib = it.lien ? '<a href="' + esc(it.lien) + '">' + esc(it.libelle) + '</a>' : esc(it.libelle);
       return '<div class="sp-gantt__ligne" role="row">' +
-        '<div class="sp-gantt__libelle" role="rowheader">' + lib +
+        '<div class="sp-gantt__libelle" role="rowheader"' + (it.niveau ? ' style="--sp-niveau:' + it.niveau + '"' : '') + '>' + (it.jalon ? '<span class="sp-losange" aria-hidden="true"></span>' : '') + lib +
         '<span class="sp-gantt__meta">' + esc([it.meta, periode].filter(Boolean).join(' · ')) + '</span></div>' +
         '<div class="sp-gantt__piste" role="cell" title="' + esc(periode) + '">' + repere + forme +
         '<span class="fr-sr-only">' + esc(periode) + '</span></div></div>';
@@ -1431,6 +1658,140 @@
     if (endormi(p)) s += '<li>' + badge('Sans activité depuis ' + p.Jours_sans_activite + ' j', 'warning') + '</li>';
     if (enRetard(p)) s += '<li>' + badge('Échéance dépassée', 'orange-terre-battue') + '</li>';
     return s ? '<ul class="sp-badges">' + s + '</ul>' : '';
+  }
+
+  // Jalons proches et actions qui coincent, pour la vue d'ensemble.
+  function blocJalonsEtAlertes(actifs) {
+    var ids = actifs.map(function (p) { return p.id; });
+    var acts = (data.Actions || []).filter(function (a) { return ids.indexOf(num(a.Projet)) !== -1 && !actionFinie(a); });
+    var horizon = aujourdhuiSec() + 30 * 86400;
+    var jalons = acts.filter(function (a) { return estJalon(a) && dateJalon(a) && dateJalon(a) <= horizon; })
+      .sort(function (a, b) { return dateJalon(a) - dateJalon(b); });
+    var alertes = acts.filter(function (a) { return !estJalon(a) && (actionEnRetard(a) || bloqueePar(a).length); })
+      .sort(function (a, b) { return (a.Fin || 9e12) - (b.Fin || 9e12); });
+    var lienProjet = function (a) { var p = idx.Projets[num(a.Projet)]; return p ? '<a class="fr-link" href="#/projet/' + p.id + '">' + esc(p.Titre || 'Projet sans titre') + '</a>' : ''; };
+    var html = '<h2 class="fr-h5 fr-mt-4w">Jalons des 30 prochains jours (' + jalons.length + ')</h2>';
+    if (!jalons.length) html += '<p class="sp-vide">Aucun jalon à venir ni dépassé.</p>';
+    else html += '<div class="sp-defile"><table class="sp-table"><thead><tr><th>Date</th><th>Jalon</th><th>Projet</th><th>Responsable</th></tr></thead><tbody>' +
+      jalons.map(function (a) {
+        return '<tr><td>' + esc(dateTexte(dateJalon(a))) + (actionEnRetard(a) ? ' ' + badge('Dépassé', 'error', true) : '') + '</td>' +
+          '<td><span class="sp-losange" aria-hidden="true"></span>' + esc(a.Intitule) + '</td><td>' + lienProjet(a) + '</td><td>' + esc(nomPersonne(a.Responsable)) + '</td></tr>';
+      }).join('') + '</tbody></table></div>';
+    html += '<h2 class="fr-h5 fr-mt-4w">Actions en retard ou en attente (' + alertes.length + ')</h2>';
+    if (!alertes.length) html += '<p class="sp-vide">Aucune action en retard ni en attente d\'une autre.</p>';
+    else html += '<div class="sp-defile"><table class="sp-table"><thead><tr><th>Action</th><th>Projet</th><th>Responsable</th><th>Fin prévue</th></tr></thead><tbody>' +
+      alertes.slice(0, 30).map(function (a) {
+        return '<tr><td>' + esc(a.Intitule) + badgesAction(a) + '</td><td>' + lienProjet(a) + '</td><td>' + esc(nomPersonne(a.Responsable)) + '</td><td>' + esc(dateTexte(a.Fin)) + '</td></tr>';
+      }).join('') + '</tbody></table></div>' + (alertes.length > 30 ? '<p class="fr-text--xs">30 premières actions affichées.</p>' : '');
+    return html;
+  }
+
+  // --- Mise à jour d'un document installé avec une version précédente --------
+
+  function colonnesManquantes(sch) {
+    var r = [];
+    Object.keys(sch.tables).forEach(function (t) {
+      if (!aTable(t)) return;
+      sch.tables[t].forEach(function (c) { if (!aColonne(t, c.id)) r.push({ table: t, c: c }); });
+    });
+    return r;
+  }
+  var schemaCache = null;
+  function chargerSchema() {
+    if (schemaCache) return Promise.resolve(schemaCache);
+    return fetch('schema.json').then(function (r) { return r.json(); }).then(function (j) { schemaCache = j; return j; });
+  }
+  function miseAJourNecessaire() {
+    return !DEMO && meta.lu && aTable('Actions') && aTable('Personnes') && (!aColonne('Actions', 'Parent') || !aColonne('Personnes', 'Role') || !aColonne('Projets', 'Admins'));
+  }
+  function bandeauMiseAJour() {
+    if (!miseAJourNecessaire()) return '';
+    return '<div class="fr-notice fr-notice--info sp-notice"><div class="fr-container"><div class="fr-notice__body">' +
+      '<p class="fr-notice__title">Nouvelle version : sous-actions, jalons, dépendances entre actions et rôle « Administration ». ' +
+      'Un propriétaire du document doit la mettre à jour. ' +
+      '<button type="button" class="fr-link" data-action="mettre-a-jour">Mettre à jour le document</button></p></div></div></div>';
+  }
+  function mettreAJour() {
+    var sch;
+    var opts = function (c) { return c.widgetOptions ? JSON.stringify(c.widgetOptions) : ''; };
+    var estRef = function (c) { return /^Ref(List)?:/.test(c.type); };
+    etat.alerte = { type: 'info', texte: 'Mise à jour en cours…' };
+    rendre();
+    return chargerSchema().then(function (j) {
+      sch = j;
+      var manque = colonnesManquantes(sch);
+      var a = [];
+      // Colonnes simples, puis références, puis formules.
+      manque.filter(function (m) { return !estRef(m.c) && !m.c.isFormula; }).forEach(function (m) {
+        a.push(['AddColumn', m.table, m.c.id, { type: m.c.type, isFormula: false, formula: m.c.formula || '', label: m.c.label || m.c.id, widgetOptions: opts(m.c) }]);
+      });
+      manque.filter(function (m) { return estRef(m.c); }).forEach(function (m) {
+        a.push(['AddColumn', m.table, m.c.id, { type: m.c.type, isFormula: !!m.c.isFormula, formula: m.c.formula || '', label: m.c.label || m.c.id, widgetOptions: opts(m.c) }]);
+      });
+      manque.filter(function (m) { return !estRef(m.c) && m.c.isFormula; }).forEach(function (m) {
+        a.push(['AddColumn', m.table, m.c.id, { type: m.c.type, isFormula: true, formula: m.c.formula || '', label: m.c.label || m.c.id, widgetOptions: opts(m.c) }]);
+      });
+      // Avancement : calculé désormais sur les actions sans sous-action, hors jalons.
+      var av = (sch.tables.Projets || []).filter(function (c) { return c.id === 'Avancement'; })[0];
+      if (av && aColonne('Projets', 'Avancement')) a.push(['ModifyColumn', 'Projets', 'Avancement', { formula: av.formula }]);
+      // Rôle « Membre » pour les personnes existantes (la formule de déclenchement ne vaut que pour les nouvelles).
+      return (a.length ? grist.docApi.applyUserActions(a) : Promise.resolve()).then(function () {
+        if (!manque.some(function (m) { return m.table === 'Personnes' && m.c.id === 'Role'; })) return null;
+        var ids = (data.Personnes || []).map(function (p) { return p.id; });
+        return ids.length ? grist.docApi.applyUserActions([['BulkUpdateRecord', 'Personnes', ids, { Role: ids.map(function () { return 'Membre'; }) }]]) : null;
+      }).then(function () {
+        return Promise.all([grist.docApi.fetchTable('_grist_Tables'), grist.docApi.fetchTable('_grist_Tables_column')]);
+      }).then(function (m) {
+        var tables = lignesDepuisColonnes(m[0]), cols = lignesDepuisColonnes(m[1]);
+        var col = function (t, c) { var tb = tables.filter(function (x) { return x.tableId === t; })[0]; return tb && cols.filter(function (x) { return x.parentId === tb.id && x.colId === c; })[0]; };
+        var b = [];
+        manque.filter(function (x) { return estRef(x.c) && x.c.visibleCol; }).forEach(function (x) {
+          var moi = col(x.table, x.c.id), v = col(x.c.type.split(':')[1], x.c.visibleCol);
+          if (moi && v) { b.push(['ModifyColumn', x.table, x.c.id, { visibleCol: v.id }]); b.push(['SetDisplayFormula', x.table, null, moi.id, '$' + x.c.id + '.' + x.c.visibleCol]); }
+        });
+        return b.length ? grist.docApi.applyUserActions(b) : null;
+      });
+    }).then(function () {
+      return Promise.all([grist.docApi.fetchTable('_grist_ACLResources'), grist.docApi.fetchTable('_grist_ACLRules')]);
+    }).then(function (x) {
+      // Règles d'accès : en dernier et en un seul lot (Grist recharge le document quand elles changent).
+      var ressources = lignesDepuisColonnes(x[0]), regles = lignesDepuisColonnes(x[1]);
+      var resSchema = {};
+      sch.acl.resources.forEach(function (r) { resSchema[r.id] = r; });
+      var resDoc = function (r) { return ressources.filter(function (y) { return y.tableId === r.tableId && y.colIds === r.colIds; })[0]; };
+      var a = [];
+      // Colonnes techniques : la nouvelle colonne Admins est masquée comme les autres.
+      ressources.forEach(function (r) {
+        if (r.colIds === 'Acces,Lecteurs,Cree_par,Contributeurs') a.push(['UpdateRecord', '_grist_ACLResources', r.id, { colIds: r.colIds + ',Admins' }]);
+      });
+      sch.acl.rules.filter(function (r) { return r.apres || r.avant; }).forEach(function (r) {
+        var rs = resSchema[r.resource], rd = rs && resDoc(rs);
+        if (!rd) return;
+        var dela = regles.filter(function (y) { return y.resource === rd.id; }).sort(function (u, v) { return u.rulePos - v.rulePos; });
+        if (dela.some(function (y) { return y.memo === r.memo; })) return;
+        var pos;
+        if (r.avant) pos = (dela.length ? dela[0].rulePos : 1) - (r.rulePos % 1 === 0.5 ? 0.5 : 0.25);
+        else {
+          var i = -1;
+          dela.forEach(function (y, k) { if (y.memo === r.apres) i = k; });
+          if (i < 0) return;
+          pos = dela[i + 1] ? (dela[i].rulePos + dela[i + 1].rulePos) / 2 : dela[i].rulePos + 0.5;
+        }
+        a.push(['AddRecord', '_grist_ACLRules', null, { resource: rd.id, aclFormula: r.aclFormula, aclFormulaParsed: r.aclFormulaParsed,
+          permissionsText: r.permissionsText, rulePos: pos, memo: r.memo, userAttributes: '' }]);
+      });
+      if (!a.length) return null;
+      return grist.docApi.applyUserActions(a).catch(function (err) {
+        if (/disposed|closed|disconnect/i.test(String((err && err.message) || err))) return null;
+        throw err;
+      });
+    }).then(function () {
+      etat.alerte = { type: 'success', texte: 'Document mis à jour. Les propriétaires attribuent le rôle « Administration » dans les réglages.' };
+      return charger().then(rendre);
+    }).catch(function (err) {
+      etat.alerte = { type: 'error', texte: 'Mise à jour impossible : seuls les propriétaires du document peuvent ajouter des colonnes et des règles. (' + ((err && err.message) || err) + ')' };
+      rendre();
+    });
   }
 
   function vuePilotage() {
@@ -1484,6 +1845,8 @@
             '<td>' + esc(dateTexte(p.Derniere_activite)) + '</td></tr>';
         }).join('') + '</tbody></table></div>';
     }
+
+    html += blocJalonsEtAlertes(actifs);
 
     // Projets par phase
     var colonnes = f.archives ? PHASES : PHASES.filter(function (ph) { return ph !== 'Clos'; });
@@ -1757,8 +2120,28 @@
     else if (a === 'annuler-suppression') { etat.suppression = null; rendre(); }
     else if (a === 'supprimer') {
       etat.suppression = null;
-      executer([['RemoveRecord', el.getAttribute('data-table'), num(el.getAttribute('data-id'))]], 'Élément supprimé.');
+      var tSup = el.getAttribute('data-table'), idSup = num(el.getAttribute('data-id'));
+      if (etat.editionAction === idSup) etat.editionAction = null;
+      executer(tSup === 'Actions' ? actionsSuppressionAction(idSup) : [['RemoveRecord', tSup, idSup]], 'Élément supprimé.');
     }
+    else if (a === 'editer-action') {
+      var idEd = num(el.getAttribute('data-id'));
+      etat.editionAction = etat.editionAction === idEd ? null : idEd;
+      delete etat.brouillons['edit-' + idEd];
+      etat.alerte = null; rendre();
+      var champEd = document.getElementById('ed-int-' + idEd);
+      if (champEd) champEd.focus();
+    }
+    else if (a === 'annuler-edition') { etat.editionAction = null; rendre(); }
+    else if (a === 'sous-action') {
+      var bs = brouillon('action-' + num(el.getAttribute('data-projet')));
+      bs.Parent = num(el.getAttribute('data-id')); bs.Type = 'Action';
+      etat.modePlan = 'liste'; etat.alerte = null; rendre();
+      var champSa = document.getElementById('a-intitule');
+      if (champSa) { champSa.scrollIntoView({ block: 'center' }); champSa.focus(); }
+    }
+    else if (a === 'mettre-a-jour') { mettreAJour(); }
+    else if (a === 'enregistrer-roles') { enregistrerRoles(); }
     else if (a === 'deplacer') {
       deplacer(el.getAttribute('data-table'), num(el.getAttribute('data-id')), el.getAttribute('data-champ'), el.getAttribute('data-valeur'));
     }
@@ -1918,6 +2301,14 @@
       etat.form[el.getAttribute('data-champ-form')] = el.value;
     } else if (el.hasAttribute('data-brouillon')) {
       brouillon(el.getAttribute('data-brouillon'))[el.getAttribute('data-champ')] = el.value;
+      if (el.hasAttribute('data-rafraichir')) rendre();
+    } else if (el.hasAttribute('data-dep')) {
+      var bd = brouillon(el.getAttribute('data-dep'));
+      var vd = num(el.value);
+      bd.Depend_de = (bd.Depend_de || []).filter(function (x) { return x !== vd; });
+      if (el.checked) bd.Depend_de.push(vd);
+    } else if (el.hasAttribute('data-role')) {
+      rolesBrouillon[num(el.getAttribute('data-role'))] = el.checked ? 'Administration' : 'Membre';
     } else if (el.hasAttribute('data-ajout') && etat.ajout) {
       etat.ajout[el.getAttribute('data-ajout')] = el.value;
     } else if (el.hasAttribute('data-profil') && etat.profilForm) {
@@ -1934,15 +2325,20 @@
     var pid = num(form.getAttribute('data-projet'));
     if (type === 'projet') { enregistrerProjet(pid || null); return; }
     if (type === 'mon-profil') { enregistrerMonProfil(); return; }
+    if (type === 'edit-action') { enregistrerAction(num(form.getAttribute('data-id'))); return; }
 
     var cle = type + '-' + pid;
     var b = brouillon(cle);
     var champs;
     if (type === 'action') {
       if (!String(b.Intitule || '').trim()) return;
-      champs = { Projet: pid, Intitule: String(b.Intitule).trim(), Responsable: num(b.Responsable),
-        Debut: saisieVersDate(b.Debut), Fin: saisieVersDate(b.Fin), Etat: 'À faire' };
-      executer([['AddRecord', 'Actions', null, champs]], 'Action ajoutée.', function () { delete etat.brouillons[cle]; });
+      var jalonAjout = b.Type === 'Jalon';
+      champs = seulementColonnes('Actions', { Projet: pid, Intitule: String(b.Intitule).trim(), Type: b.Type || 'Action', Parent: num(b.Parent),
+        Responsable: num(b.Responsable), Debut: jalonAjout ? null : saisieVersDate(b.Debut), Fin: saisieVersDate(b.Fin), Etat: ETATS_ACTION[0] });
+      executer([['AddRecord', 'Actions', null, champs]], jalonAjout ? 'Jalon ajouté.' : (num(b.Parent) ? 'Sous-action ajoutée.' : 'Action ajoutée.'), function () {
+        var garder = { Parent: b.Parent, Responsable: b.Responsable };
+        etat.brouillons[cle] = num(b.Parent) ? garder : {};
+      });
     } else if (type === 'journal') {
       if (!String(b.Message || '').trim()) return;
       champs = { Projet: pid, Type: b.Type || 'Avancement', Message: String(b.Message).trim() };
@@ -1960,7 +2356,7 @@
 
   var ficheCourante = null;
   window.addEventListener('hashchange', function () {
-    etat.alerte = null; etat.suppression = null; etat.ajout = null; etat.doublon = null; etat.pasMoi = null;
+    etat.alerte = null; etat.suppression = null; etat.ajout = null; etat.doublon = null; etat.pasMoi = null; etat.editionAction = null;
     var r = route();
     if (r.vue !== 'profil') etat.profilForm = null;
     if (r.vue === 'fiche' && r.id !== ficheCourante) { etat.onglet = 'presentation'; ficheCourante = r.id; }

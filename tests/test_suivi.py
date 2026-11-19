@@ -120,45 +120,91 @@ with sync_playwright() as p:
     pg.wait_for_timeout(300)
     pg.locator("label[for='o-plan']").click()
     pg.wait_for_timeout(200)
-    ok("plan : sélecteur liste/kanban/calendrier", pg.locator("input[data-mode='plan']").count() == 3)
-    ok("plan : liste en tableau", pg.locator(".sp-table tbody tr").count() == 3, pg.locator(".sp-table tbody tr").count())
+    ok("plan : sélecteur liste/kanban/chronologie", pg.locator("input[data-mode='plan']").count() == 3)
+    ok("plan : liste en tableau (actions, sous-actions, jalons)", pg.locator(".sp-plan tbody tr").count() == 10, pg.locator(".sp-plan tbody tr").count())
+    ok("plan : sous-actions en retrait", pg.locator(".sp-plan__branche").count() == 5, pg.locator(".sp-plan__branche").count())
+    ok("plan : jalons", pg.locator(".sp-plan .sp-losange").count() == 2)
+    ok("plan : actions en attente d'une autre", pg.locator(".sp-plan .fr-badge:has-text('En attente de')").count() == 4,
+       pg.locator(".sp-plan .fr-badge:has-text('En attente de')").count())
+    ok("plan : progression des sous-actions", pg.locator(".sp-plan .fr-badge:has-text('sous-action')").count() == 2)
+    pg.screenshot(path=OUT + "-plan.png", full_page=True)
+
+    # Ajouter une sous-action
+    pg.locator("[data-action='sous-action'][data-id='11']").click()
+    pg.wait_for_timeout(200)
+    ok("sous-action : formulaire prérempli", "Mettre en page" in pg.locator("label[for='a-intitule']").inner_text())
+    pg.fill("#a-intitule", "Choisir la police")
+    pg.click("#sp-ajout-action button[type='submit']")
+    pg.wait_for_timeout(300)
+    noms = pg.evaluate("[...document.querySelectorAll('.sp-plan__intitule')].map(e => e.textContent)")
+    ok("sous-action : placée sous son parent", noms.index("Choisir la police") == noms.index("Mettre en page") + 1)
+
+    # Ajouter un jalon : pas de date de début
+    pg.select_option("#a-parent", "")
+    pg.select_option("#a-type", "Jalon")
+    pg.wait_for_timeout(200)
+    ok("jalon : une seule date", pg.locator("#a-debut").count() == 0 and "jalon" in pg.locator("label[for='a-fin']").inner_text())
+    pg.fill("#a-intitule", "Jalon test")
+    pg.fill("#a-fin", "2026-12-01")
+    pg.click("#sp-ajout-action button[type='submit']")
+    pg.wait_for_timeout(300)
+    ok("jalon : ajouté", pg.locator(".sp-plan .sp-losange").count() == 3)
+
+    # Modifier une action : dépendance vers le jalon
+    jid = pg.evaluate("[...document.querySelectorAll('tr')].find(t => t.textContent.includes('Jalon test')).querySelector('[data-action=editer-action]').dataset.id")
+    pg.click("[data-action='editer-action'][data-id='3']")
+    pg.wait_for_timeout(200)
+    ok("édition : formulaire ouvert", pg.locator("form[data-form='edit-action']").count() == 1)
+    ok("édition : une action ne peut pas dépendre d'elle-même", pg.locator("#ed-dep-3-3").count() == 0)
+    pg.locator("#ed-dep-3-" + jid).check(force=True)
+    pg.click("form[data-form='edit-action'] button[type='submit']")
+    pg.wait_for_timeout(300)
+    ligne = pg.evaluate("[...document.querySelectorAll('tr')].find(t => t.textContent.includes('Organiser la première')).textContent")
+    ok("édition : dépendance enregistrée", "Jalon test" in ligne)
+
+    # Supprimer une action parente : ses sous-actions remontent, la dépendance disparaît
+    pg.click("[data-action='demander-suppression'][data-table='Actions'][data-id='2']")
+    pg.click("[data-action='supprimer'][data-table='Actions'][data-id='2']")
+    pg.wait_for_timeout(300)
+    ok("suppression : sous-actions conservées", pg.locator(".sp-plan__intitule:has-text('Écrire la première version')").count() == 1)
+    ligne = pg.evaluate("[...document.querySelectorAll('tr')].find(t => t.textContent.includes('Livret validé')).textContent")
+    ok("suppression : dépendance retirée", "attente" not in ligne.lower())
 
     pg.locator("label[for='m-plan-kanban']").click()
     pg.wait_for_timeout(200)
     ok("kanban : 4 colonnes", pg.locator(".sp-colonne").count() == 4)
     col_a_faire = pg.locator(".sp-colonne[data-drop-valeur='À faire'] .sp-ticket")
-    ok("kanban : 1 action à faire", col_a_faire.count() == 1, col_a_faire.count())
+    avant_ec = pg.locator(".sp-colonne[data-drop-valeur='En cours'] .sp-ticket").count()
+    ok("kanban : sous-actions avec leur parent", pg.locator(".sp-ticket__parent").count() >= 3)
     pg.screenshot(path=OUT + "-kanban.png", full_page=True)
-    # bouton « vers En cours »
     col_a_faire.first.locator("button[data-valeur='En cours']").click()
     pg.wait_for_timeout(300)
     ok("kanban : bouton déplace la carte",
-       pg.locator(".sp-colonne[data-drop-valeur='En cours'] .sp-ticket").count() == 2)
+       pg.locator(".sp-colonne[data-drop-valeur='En cours'] .sp-ticket").count() == avant_ec + 1)
     ok("kanban : alerte de succès", pg.locator(".fr-alert--success").count() == 1)
-    # glisser-déposer vers « Fait »
     src = pg.locator(".sp-colonne[data-drop-valeur='En cours'] .sp-ticket").first
     dst = pg.locator(".sp-colonne[data-drop-valeur='Fait']")
     avant = dst.locator(".sp-ticket").count()
-    src.drag_to(dst)
+    src.drag_to(dst, target_position={"x": 40, "y": 20})
     pg.wait_for_timeout(300)
     ok("kanban : glisser-déposer", pg.locator(".sp-colonne[data-drop-valeur='Fait'] .sp-ticket").count() == avant + 1)
 
-    pg.locator("label[for='m-plan-calendrier']").click()
+    pg.locator("label[for='m-plan-chronologie']").click()
     pg.wait_for_timeout(200)
-    ok("calendrier : 3 barres", pg.locator(".sp-gantt__barre").count() == 3, pg.locator(".sp-gantt__barre").count())
-    ok("calendrier : repère aujourd'hui", pg.locator(".sp-gantt__jour").count() >= 1)
-    ok("calendrier : graduation des mois", pg.locator(".sp-gantt__mois").count() >= 4)
+    ok("chronologie : barres", pg.locator(".sp-gantt__barre").count() == 7, pg.locator(".sp-gantt__barre").count())
+    ok("chronologie : jalons", pg.locator(".sp-gantt__jalon--cle").count() == 3, pg.locator(".sp-gantt__jalon--cle").count())
+    ok("chronologie : repère aujourd'hui", pg.locator(".sp-gantt__jour").count() >= 1)
+    ok("chronologie : graduation des mois", pg.locator(".sp-gantt__mois").count() >= 4)
     pg.screenshot(path=OUT + "-gantt.png", full_page=True)
 
-    # Projet 3 : action avec seulement une date de fin -> jalon
+    # Projet 3 : action avec seulement une date de fin -> losange, plus un vrai jalon
     pg.goto(BASE + "/suivi-projets/#/projet/3")
     pg.wait_for_timeout(300)
     pg.locator("label[for='o-plan']").click()
     pg.wait_for_timeout(200)
-    if pg.locator("label[for='m-plan-calendrier']").count():
-        pg.locator("label[for='m-plan-calendrier']").click()
-        pg.wait_for_timeout(200)
-        ok("calendrier : jalon pour une action sans début", pg.locator(".sp-gantt__jalon").count() == 1)
+    pg.locator("label[for='m-plan-chronologie']").click()
+    pg.wait_for_timeout(200)
+    ok("chronologie : losanges du projet 3", pg.locator(".sp-gantt__jalon").count() == 2, pg.locator(".sp-gantt__jalon").count())
 
     # Journal
     pg.goto(BASE + "/suivi-projets/#/projet/1")
@@ -303,7 +349,7 @@ with sync_playwright() as p:
     fr.locator("label[for='o-plan']").click()
     fr.locator("label[for='m-plan-kanban']").click()
     pg3.wait_for_timeout(200)
-    fr.locator(".sp-colonne[data-drop-valeur='À faire'] .sp-ticket button[data-valeur='En cours']").click()
+    fr.locator(".sp-colonne[data-drop-valeur='À faire'] .sp-ticket button[data-valeur='En cours']").first.click()
     pg3.wait_for_timeout(500)
     actions = pg3.evaluate("window.__ACTIONS__ || []")
     ok("grist : UpdateRecord envoyé", any(a[0] == "UpdateRecord" and a[1] == "Actions" and a[3].get("Etat") == "En cours" for a in actions), actions)

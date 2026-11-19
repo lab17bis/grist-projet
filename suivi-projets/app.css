@@ -294,3 +294,31 @@ body {
 .sp-liste-simple { list-style: none; padding: 0; margin: 0; }
 .sp-liste-simple li { padding: 0.5rem 0; border-bottom: 1px solid var(--border-default-grey); }
 .sp-liste-simple li:last-child { border-bottom: 0; }
+
+/* --- Plan d'action : arborescence, jalons, dépendances, édition --- */
+.sp-ajout--plan { grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr)); }
+.sp-ajout__titre { grid-column: 1 / -1; }
+.sp-plan__entete { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: .5rem 1.5rem; margin: 1rem 0 .5rem; }
+.sp-plan__entete .sp-mode { margin: 0; }
+.sp-plan__titre { display: flex; align-items: flex-start; gap: .375rem; padding-left: calc(var(--sp-niveau, 0) * 1.5rem); }
+.sp-plan__branche { color: var(--text-mention-grey); }
+.sp-plan__intitule { font-weight: 500; }
+.sp-plan__notes { display: block; font-size: .75rem; color: var(--text-mention-grey); }
+.sp-plan__dates { white-space: nowrap; font-size: .875rem; }
+.sp-plan__etat { min-width: 8.5rem; padding-top: .25rem; padding-bottom: .25rem; }
+.sp-plan__ligne-jalon .sp-plan__intitule { font-weight: 700; }
+.sp-plan__edition > td { background: var(--background-alt-blue-france); }
+.sp-badges-ligne { display: flex; flex-wrap: wrap; gap: .25rem; margin-top: .25rem; }
+.sp-badges-ligne .fr-badge { white-space: normal; text-align: left; }
+.sp-losange { display: inline-block; flex: none; width: .625rem; height: .625rem; margin: .375rem .375rem 0 0; transform: rotate(45deg);
+  background: var(--background-action-high-purple-glycine, #6E445A); }
+.sp-ticket__parent { margin: 0 0 .125rem; font-size: .75rem; color: var(--text-mention-grey); }
+.sp-edition { padding: .5rem 0; }
+.sp-edition__grille { display: grid; grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr)); gap: .75rem 1rem; }
+.sp-edition__grille .fr-input-group, .sp-edition__grille .fr-select-group { margin: 0; }
+.sp-edition__large { grid-column: 1 / -1; }
+.sp-edition__deps { margin: 1rem 0 0; max-height: 22rem; overflow: auto; }
+.sp-plan .sp-actions-ligne { flex-wrap: nowrap; gap: .25rem; }
+.sp-gantt__libelle[style] { padding-left: calc(var(--sp-niveau, 0) * 1rem); }
+.sp-barre--attente { background: repeating-linear-gradient(135deg, var(--background-flat-warning) 0 6px, var(--background-contrast-warning) 6px 12px); }
+.sp-gantt__jalon--cle { background: var(--background-action-high-purple-glycine, #6E445A); outline: none; }

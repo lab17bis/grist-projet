@@ -1,6 +1,6 @@
 # grist-projet
 
-> **Widget-outil pour Grist, clé en main.** Il transforme un document Grist en espace d'équipe pour gérer des projets ensemble, au Système de design de l'État (DSFR) : base des projets de l'équipe, page de chaque projet (plan d'action en kanban, liste ou calendrier, journal, documents), travail de chacun, vue d'ensemble pour l'encadrement.
+> **Widget-outil pour Grist, clé en main.** Il transforme un document Grist en espace d'équipe pour gérer des projets ensemble, au Système de design de l'État (DSFR) : base des projets de l'équipe, page de chaque projet (plan d'action avec sous-actions, jalons et dépendances, en liste, kanban ou chronologie ; journal ; documents), travail de chacun, vue d'ensemble pour l'encadrement.
 
 Tout se règle dans Grist, sans toucher au code : en-tête et pied de page, listes de valeurs (phases, états, origines, thématiques…), couleurs des étiquettes, délai d'alerte. Le dépôt ne contient que le code : aucune donnée, aucun projet réel.
 
@@ -10,14 +10,27 @@ Un document Grist devient l'**espace commun d'une équipe** (un service, une dir
 
 | Pour qui | Ce que l'outil permet |
 | --- | --- |
-| **Porteurs et équipes projet** | Créer un projet, le mettre à jour, tenir un plan d'action (kanban, liste ou calendrier), un journal et une liste de documents, sans reporting imposé |
+| **Porteurs et équipes projet** | Créer un projet, le mettre à jour, tenir un plan d'action, un journal et une liste de documents, sans reporting imposé |
 | **Chaque membre** | *Mon travail* : les actions qui lui sont confiées (en retard, dans les 7 jours, plus tard), ses projets, l'activité récente de ses projets |
-| **Encadrement** | Une vue d'ensemble : chiffres clés, projets à relancer, kanban des phases, calendrier, répartition par structure |
+| **Encadrement** | Une vue d'ensemble : chiffres clés, projets à relancer, jalons des 30 prochains jours, actions en retard ou en attente, kanban des phases, calendrier, répartition par structure |
 | **Toutes les personnes de l'espace** | Une banque des projets consultable : qui porte quoi, où en est chaque projet. Elle sert aussi d'archive |
 
+### Le plan d'action
+
+- **Actions et sous-actions**, sur autant de niveaux que nécessaire. Une action parente affiche la progression de ses sous-actions (« 2/3 faites »).
+- **Jalons** : des dates clés (une validation, un lancement, un comité), signalés par un losange.
+- **Dépendances** : une action peut dépendre d'une ou plusieurs autres. Tant que celles-ci ne sont pas faites, elle est signalée « en attente de… ». Une action ne peut pas dépendre d'elle-même ni d'une action qui l'attend déjà.
+- **Trois affichages** : *Liste* (arborescence, modification en place), *Kanban* (par état, glisser-déposer ou boutons) et *Chronologie* (barres et jalons dans le temps, repère du jour).
+- **Pour chaque action** : responsable, dates, état, notes. L'avancement du projet est calculé sur les actions sans sous-action, hors jalons.
+
+### Les droits
+
 - L'annuaire se construit à l'usage : une personne qui déclare un projet ou y est ajoutée rejoint l'annuaire.
-- Les droits (administrateur, contributeur, lecteur) sont appliqués par Grist, pas par le widget.
-- Chaque projet est **ouvert** (visible par tout l'espace) ou **restreint** (visible seulement par ses porteurs, son équipe, la personne qui l'a confié et les administrateurs).
+- Les droits sont appliqués par les **règles d'accès de Grist**, pas par le widget.
+- Chaque projet est **ouvert** (visible par tout l'espace : la transparence par défaut d'une équipe) ou **restreint** (visible seulement par ses porteurs, son équipe et la personne qui l'a confié).
+- Les porteurs (et la personne qui a déclaré le projet) le modifient ; l'équipe projet tient le plan d'action, le journal et les documents.
+- Le **rôle « Administration »**, attribué par personne dans *Réglages du suivi*, voit et gère tous les projets, y compris restreints. Seuls les propriétaires du document l'attribuent.
+- Chaque personne est reconnue par l'adresse de son compte Grist : il suffit que sa fiche de l'annuaire porte cette adresse. Sinon, elle indique son nom une seule fois.
 
 Contrairement aux widgets de mise en page [grist-catalogue](https://github.com/lab17bis/grist-catalogue), [grist-questionnaire](https://github.com/lab17bis/grist-questionnaire) et [grist-graphique](https://github.com/lab17bis/grist-graphique), cet outil ne produit pas de page publique : il s'utilise **dans Grist**, et chaque personne doit y être connectée. Le document Grist est l'espace : on y invite les membres de l'équipe.
 
@@ -32,6 +45,10 @@ Démonstration avec des données fictives (rien n'est enregistré) : <https://la
 
 Pour plus de clarté, rattachez ensuite la vue personnalisée à la table `Projets` et supprimez la table de départ. Le modèle [`modele/modele-grist-projet.grist`](modele/modele-grist-projet.grist) reste disponible, pages comprises.
 
+## Mettre à jour un document existant
+
+Un document installé avec une version précédente continue de fonctionner. Un bandeau propose alors *Mettre à jour le document* : à faire une fois, par un propriétaire. Le widget ajoute les colonnes nouvelles (sous-actions, jalons, dépendances, notes, rôle) et les règles d'accès du rôle « Administration », sans modifier les données ni les autres règles.
+
 ## Le régler
 
 L'écran *Réglages du suivi* regroupe :
@@ -41,6 +58,7 @@ L'écran *Réglages du suivi* regroupe :
 | En-tête et pied de page | Logo, bloc-marque, titre, sous-titre, boutons, pied de page, mention d'accessibilité |
 | Listes de valeurs | Phases, états, origines, thématiques, états des actions, types d'entrées du journal, types de documents. Les choix des colonnes Grist sont mis à jour en même temps |
 | Couleurs des étiquettes | Une couleur par valeur |
+| Rôle « Administration » | Les personnes qui voient et gèrent tous les projets |
 | Autres réglages | Domaine des adresses électroniques (suggestion d'adresse et contrôle des profils), délai avant l'alerte « projet à relancer » |
 
 Les réglages sont enregistrés en JSON dans la **description de la colonne `Config_suivi`** de la table `Projets`. Ne supprimez pas cette colonne.

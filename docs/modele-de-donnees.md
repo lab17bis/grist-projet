@@ -5,11 +5,11 @@ Le widget s'appuie sur un document Grist qui contient les tables suivantes.
 | Table | Rôle |
 |---|---|
 | `Structures` | Arborescence des sites, directions, divisions, bureaux et services. |
-| `Personnes` | Annuaire : nom, structure de rattachement. L'email est calculé : saisi par un administrateur (`Email_saisi`) ou repris du compte rattaché. |
+| `Personnes` | Annuaire : nom, structure de rattachement, rôle (`Membre` ou `Administration`). L'email est calculé : saisi par un administrateur (`Email_saisi`) ou repris du compte rattaché. |
 | `Parametres` | Réglages modifiables par l'administrateur : `Contact_admin`, `Domaine_courriel` (recopié depuis l'écran Réglages du widget). |
 | `Comptes` | Une ligne par personne qui a ouvert le suivi. Grist y inscrit lui-même l'email du compte connecté. `Profil` relie le compte à sa ligne de l'annuaire. |
 | `Projets` | Fiche projet : structure porteuse, porteurs, équipe, mission confiée, phase, état, visibilité, échéance. |
-| `Actions` | Plan d'action du projet : intitulé, responsable, début, fin, état. Sert au kanban, à la liste et au Gantt. |
+| `Actions` | Plan d'action du projet : intitulé, type (`Action` ou `Jalon`), action parente (`Parent`, pour les sous-actions), responsable, début, fin, état, dépendances (`Depend_de`), notes. `Bloquee` est calculée : vraie tant qu'une dépendance n'est pas faite. Sert à la liste, au kanban et à la chronologie. |
 | `Journal` | Commentaires datés laissés au fil du projet. |
 | `Documents` | Liens vers les documents du projet (Nextcloud, Docs). |
 
@@ -24,7 +24,8 @@ Le widget s'appuie sur un document Grist qui contient les tables suivantes.
 
 | Rôle Grist | Droits |
 |---|---|
-| Propriétaire (administrateur) | Tout. |
+| Propriétaire (administrateur) | Tout, y compris l'attribution du rôle « Administration ». |
+| Rôle « Administration » (colonne `Personnes.Role`) | Voit et gère tous les projets, y compris restreints, avec leur plan d'action, leur journal et leurs documents. Une fiche en Administration n'est modifiable que par les propriétaires. |
 | Éditeur (contributeur) | Consulte les projets, en déclare. Modifie les projets dont il est porteur ou créateur. Contribue au plan d'action, au journal et aux documents des projets dont il est membre de l'équipe. |
 | Lecteur | Consultation. |
 

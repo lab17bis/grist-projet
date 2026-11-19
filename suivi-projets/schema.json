@@ -68,6 +68,18 @@
     "visibleCol": "Libelle"
    },
    {
+    "id": "Role",
+    "type": "Choice",
+    "formula": "\"Membre\"",
+    "label": "Rôle",
+    "widgetOptions": {
+     "choices": [
+      "Membre",
+      "Administration"
+     ]
+    }
+   },
+   {
     "id": "Cree_par",
     "type": "Text",
     "formula": "(user.Email or \"\").strip().lower()"
@@ -315,7 +327,7 @@
     "id": "Avancement",
     "type": "Numeric",
     "isFormula": true,
-    "formula": "acts = [a for a in Actions.lookupRecords(Projet=$id) if a.Etat != \"Abandonné\"]\nif not acts:\n  return None\nreturn round(100.0 * len([a for a in acts if a.Etat == \"Fait\"]) / len(acts))",
+    "formula": "FINI = (\"Fait\",)\nacts = Actions.lookupRecords(Projet=$id)\nparents = set(a.Parent.id for a in acts if a.Parent)\nfeuilles = [a for a in acts if a.Etat != \"Abandonné\" and a.Type != \"Jalon\" and a.id not in parents]\nif not feuilles:\n  return None\nreturn round(100.0 * len([a for a in feuilles if a.Etat in FINI]) / len(feuilles))",
     "label": "Avancement (% d'actions faites)"
    },
    {
@@ -351,6 +363,13 @@
     "label": "Droits de contribution (calculé)"
    },
    {
+    "id": "Admins",
+    "type": "ChoiceList",
+    "isFormula": true,
+    "formula": "[p.Email for p in Personnes.lookupRecords(Role=\"Administration\") if p.Email]",
+    "label": "Rôle Administration (calculé)"
+   },
+   {
     "id": "Config_suivi",
     "type": "Text",
     "isFormula": true
@@ -366,6 +385,24 @@
     "id": "Intitule",
     "type": "Text",
     "label": "Action"
+   },
+   {
+    "id": "Type",
+    "type": "Choice",
+    "formula": "\"Action\"",
+    "label": "Type",
+    "widgetOptions": {
+     "choices": [
+      "Action",
+      "Jalon"
+     ]
+    }
+   },
+   {
+    "id": "Parent",
+    "type": "Ref:Actions",
+    "label": "Rattachée à",
+    "visibleCol": "Intitule"
    },
    {
     "id": "Responsable",
@@ -400,6 +437,24 @@
       "Abandonné"
      ]
     }
+   },
+   {
+    "id": "Depend_de",
+    "type": "RefList:Actions",
+    "label": "Dépend de",
+    "visibleCol": "Intitule"
+   },
+   {
+    "id": "Notes",
+    "type": "Text",
+    "label": "Notes"
+   },
+   {
+    "id": "Bloquee",
+    "type": "Bool",
+    "isFormula": true,
+    "label": "Bloquée (calculé)",
+    "formula": "FINI = (\"Fait\", \"Abandonné\")\nreturn $Etat not in FINI and any(d.Etat not in FINI for d in $Depend_de)"
    },
    {
     "id": "Cree_par",
@@ -444,6 +499,13 @@
     "isFormula": true,
     "formula": "list($Projet.Contributeurs)",
     "label": "Droits de contribution (calculé)"
+   },
+   {
+    "id": "Admins",
+    "type": "ChoiceList",
+    "isFormula": true,
+    "formula": "list($Projet.Admins)",
+    "label": "Rôle Administration (calculé)"
    }
   ],
   "Journal": [
@@ -516,6 +578,13 @@
     "isFormula": true,
     "formula": "list($Projet.Contributeurs)",
     "label": "Droits de contribution (calculé)"
+   },
+   {
+    "id": "Admins",
+    "type": "ChoiceList",
+    "isFormula": true,
+    "formula": "list($Projet.Admins)",
+    "label": "Rôle Administration (calculé)"
    }
   ],
   "Documents": [
@@ -580,6 +649,13 @@
     "isFormula": true,
     "formula": "list($Projet.Contributeurs)",
     "label": "Droits de contribution (calculé)"
+   },
+   {
+    "id": "Admins",
+    "type": "ChoiceList",
+    "isFormula": true,
+    "formula": "list($Projet.Admins)",
+    "label": "Rôle Administration (calculé)"
    }
   ],
   "Comptes": [
@@ -643,7 +719,7 @@
    {
     "id": 4,
     "tableId": "Projets",
-    "colIds": "Acces,Lecteurs,Cree_par,Contributeurs"
+    "colIds": "Acces,Lecteurs,Cree_par,Contributeurs,Admins"
    },
    {
     "id": 5,
@@ -653,7 +729,7 @@
    {
     "id": 6,
     "tableId": "Actions",
-    "colIds": "Acces,Lecteurs,Cree_par,Contributeurs"
+    "colIds": "Acces,Lecteurs,Cree_par,Contributeurs,Admins"
    },
    {
     "id": 7,
@@ -663,7 +739,7 @@
    {
     "id": 8,
     "tableId": "Journal",
-    "colIds": "Acces,Lecteurs,Cree_par,Contributeurs"
+    "colIds": "Acces,Lecteurs,Cree_par,Contributeurs,Admins"
    },
    {
     "id": 9,
@@ -673,7 +749,7 @@
    {
     "id": 10,
     "tableId": "Documents",
-    "colIds": "Acces,Lecteurs,Cree_par,Contributeurs"
+    "colIds": "Acces,Lecteurs,Cree_par,Contributeurs,Admins"
    },
    {
     "id": 11,
@@ -1242,6 +1318,66 @@
     "rulePos": 36.875,
     "memo": "Par défaut : rien",
     "userAttributes": ""
+   },
+   {
+    "resource": 3,
+    "aclFormula": "user.Email.lower() in rec.Admins",
+    "aclFormulaParsed": "[\"In\", [\"Call\", [\"Attr\", [\"Attr\", [\"Name\", \"user\"], \"Email\"], \"lower\"]], [\"Attr\", [\"Name\", \"rec\"], \"Admins\"]]",
+    "permissionsText": "+CRUD",
+    "rulePos": 6.5,
+    "memo": "Rôle Administration : voit et gère tous les projets",
+    "userAttributes": "",
+    "apres": "Administrateur : tout"
+   },
+   {
+    "resource": 5,
+    "aclFormula": "user.Email.lower() in rec.Admins",
+    "aclFormulaParsed": "[\"In\", [\"Call\", [\"Attr\", [\"Attr\", [\"Name\", \"user\"], \"Email\"], \"lower\"]], [\"Attr\", [\"Name\", \"rec\"], \"Admins\"]]",
+    "permissionsText": "+CRUD",
+    "rulePos": 12.5,
+    "memo": "Rôle Administration : voit et gère tous les projets",
+    "userAttributes": "",
+    "apres": "Administrateur : tout"
+   },
+   {
+    "resource": 7,
+    "aclFormula": "user.Email.lower() in rec.Admins",
+    "aclFormulaParsed": "[\"In\", [\"Call\", [\"Attr\", [\"Attr\", [\"Name\", \"user\"], \"Email\"], \"lower\"]], [\"Attr\", [\"Name\", \"rec\"], \"Admins\"]]",
+    "permissionsText": "+CRUD",
+    "rulePos": 17.5,
+    "memo": "Rôle Administration : voit et gère tous les projets",
+    "userAttributes": "",
+    "apres": "Administrateur : tout"
+   },
+   {
+    "resource": 9,
+    "aclFormula": "user.Email.lower() in rec.Admins",
+    "aclFormulaParsed": "[\"In\", [\"Call\", [\"Attr\", [\"Attr\", [\"Name\", \"user\"], \"Email\"], \"lower\"]], [\"Attr\", [\"Name\", \"rec\"], \"Admins\"]]",
+    "permissionsText": "+CRUD",
+    "rulePos": 22.5,
+    "memo": "Rôle Administration : voit et gère tous les projets",
+    "userAttributes": "",
+    "apres": "Administrateur : tout"
+   },
+   {
+    "resource": 12,
+    "aclFormula": "user.Access not in [OWNER] and newRec.Role == \"Administration\"",
+    "aclFormulaParsed": "[\"And\", [\"NotIn\", [\"Attr\", [\"Name\", \"user\"], \"Access\"], [\"List\", [\"Name\", \"OWNER\"]]], [\"Eq\", [\"Attr\", [\"Name\", \"newRec\"], \"Role\"], [\"Const\", \"Administration\"]]]",
+    "permissionsText": "-CU",
+    "rulePos": 29.5,
+    "memo": "Rôle Administration : attribué par les propriétaires du document",
+    "userAttributes": "",
+    "avant": true
+   },
+   {
+    "resource": 12,
+    "aclFormula": "user.Access not in [OWNER] and rec.Role == \"Administration\"",
+    "aclFormulaParsed": "[\"And\", [\"NotIn\", [\"Attr\", [\"Name\", \"user\"], \"Access\"], [\"List\", [\"Name\", \"OWNER\"]]], [\"Eq\", [\"Attr\", [\"Name\", \"rec\"], \"Role\"], [\"Const\", \"Administration\"]]]",
+    "permissionsText": "-UD",
+    "rulePos": 29.75,
+    "memo": "Fiche d’une personne en Administration : propriétaires seulement",
+    "userAttributes": "",
+    "avant": true
    }
   ]
  }
