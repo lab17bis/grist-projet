@@ -419,6 +419,13 @@
       } else if (a[0] === 'UpdateRecord') {
         Object.assign(idx[t][a[2]], a[3], t === 'Projets' || t === 'Actions' ? { Maj_le: Date.now() / 1000 } : {});
         retValues.push(null);
+      } else if (a[0] === 'BulkUpdateRecord') {
+        a[2].forEach(function (rid, k) {
+          var maj = {};
+          Object.keys(a[3]).forEach(function (c) { maj[c] = a[3][c][k]; });
+          if (idx[t][rid]) Object.assign(idx[t][rid], maj);
+        });
+        retValues.push(null);
       } else if (a[0] === 'RemoveRecord') {
         data[t] = data[t].filter(function (l) { return l.id !== a[2]; });
         retValues.push(null);
@@ -1157,6 +1164,7 @@
     html += '<div class="sp-plan__entete"><p class="fr-text--sm fr-mb-0">' + acts.length + ' élément' + (acts.length > 1 ? 's' : '') + ' · ' + faites + ' fait' + (faites > 1 ? 's' : '') +
       (attente ? ' · <strong>' + attente + ' en attente</strong>' : '') + (retard ? ' · <strong>' + retard + ' en retard</strong>' : '') + '</p>' +
       selecteurMode('plan', etat.modePlan === 'calendrier' ? 'chronologie' : etat.modePlan, [['liste', 'Liste'], ['kanban', 'Kanban'], ['chronologie', 'Chronologie']], "Affichage du plan d'action") + '</div>';
+    if (etat.retro && idx.Actions[etat.retro] && num(idx.Actions[etat.retro].Projet) === p.id) html += panneauRetro();
     if (etat.modePlan === 'kanban') return html + kanbanActions(acts);
     if (etat.modePlan === 'chronologie' || etat.modePlan === 'calendrier') return html + chronologieActions(acts);
     return html + listeActions(p, acts);
@@ -1178,6 +1186,7 @@
         ETATS_ACTION.map(function (e) { return '<option' + ((a.Etat || ETATS_ACTION[0]) === e ? ' selected' : '') + '>' + esc(e) + '</option>'; }).join('') + '</select></td>' +
         '<td><span class="sp-actions-ligne">' +
         '<button type="button" class="fr-btn fr-btn--sm fr-btn--tertiary-no-outline fr-icon-edit-line" title="Modifier « ' + esc(a.Intitule) + ' »" data-action="editer-action" data-id="' + a.id + '"' + (etat.editionAction === a.id ? ' aria-expanded="true"' : '') + '>Modifier</button>' +
+        (dependances(a).length ? '<button type="button" class="fr-btn fr-btn--sm fr-btn--tertiary-no-outline fr-icon-calendar-line" title="Rétroplanning depuis « ' + esc(a.Intitule) + ' »" data-action="retro" data-id="' + a.id + '">Rétroplanning</button>' : '') +
         (estJalon(a) ? '' : '<button type="button" class="fr-btn fr-btn--sm fr-btn--tertiary-no-outline fr-icon-add-line" title="Ajouter une sous-action à « ' + esc(a.Intitule) + ' »" data-action="sous-action" data-id="' + a.id + '" data-projet="' + p.id + '">Ajouter une sous-action</button>') +
         boutonSuppression('Actions', a.id) + '</span></td></tr>';
       if (etat.editionAction === a.id) html += '<tr class="sp-plan__edition"><td colspan="5">' + formulaireAction(p, a, acts) + '</td></tr>';
@@ -1206,8 +1215,8 @@
       champSelect('ed-par-' + a.id, 'Rattachée à', b.Parent, optionsActions(arbreActions(autres).filter(function (x) { return !estJalon(x.a); })), attrs('Parent'), 'Aucune (action principale)') +
       champSelect('ed-resp-' + a.id, 'Responsable', b.Responsable, optionsPersonnes(b.Responsable, p), attrs('Responsable'), 'Non attribuée') +
       champSelect('ed-etat-' + a.id, 'État', b.Etat, ETATS_ACTION, attrs('Etat'), false) +
-      (jalon ? '' : champDate('ed-deb-' + a.id, 'Début', b.Debut, attrs('Debut'))) +
-      champDate('ed-fin-' + a.id, jalon ? 'Date du jalon' : 'Fin', b.Fin, attrs('Fin')) + '</div>';
+      (jalon ? '' : champDate('ed-deb-' + a.id, 'Début', b.Debut, attrs('Debut') + ' data-rafraichir')) +
+      champDate('ed-fin-' + a.id, jalon ? 'Date du jalon' : 'Fin', b.Fin, attrs('Fin') + ' data-rafraichir') + blocDecalage(a, b, cle) + '</div>';
     if (prerequis.length) {
       h += '<fieldset class="fr-fieldset sp-edition__deps" id="ed-deps-' + a.id + '" aria-labelledby="ed-deps-leg-' + a.id + '">' +
         '<legend class="fr-fieldset__legend fr-text--regular" id="ed-deps-leg-' + a.id + '">Dépend de' +
@@ -1240,7 +1249,12 @@
       Debut: jalon ? null : saisieVersDate(b.Debut), Fin: saisieVersDate(b.Fin), Etat: b.Etat || ETATS_ACTION[0],
       Notes: b.Notes || '', Depend_de: deps.length ? versListe(deps) : null
     });
-    executer([['UpdateRecord', 'Actions', aid, champs]], 'Action enregistrée.', function () {
+    var a0 = idx.Actions[aid] || {};
+    var ecart = b.Decaler === false ? 0 : ecartEdition(a0, b);
+    var suite = ecart ? actionsDecalage(aid, ecart) : [];
+    var nb = suite.length ? suite[0][2].length : 0;
+    executer([['UpdateRecord', 'Actions', aid, champs]].concat(suite),
+      nb ? 'Action enregistrée. ' + nb + ' action' + (nb > 1 ? 's' : '') + ' qui sui' + (nb > 1 ? 'vent' : 't') + ' ' + (nb > 1 ? 'ont' : 'a') + ' été ' + (ecart > 0 ? 'repoussée' : 'avancée') + (nb > 1 ? 's' : '') + ' de ' + joursTexte(ecart) + '.' : 'Action enregistrée.', function () {
       delete etat.brouillons['edit-' + aid];
       etat.editionAction = null;
     });
@@ -1264,6 +1278,132 @@
     }
     res.push(['RemoveRecord', 'Actions', id]);
     return res;
+  }
+
+  // --- Décalage en chaîne et rétroplanning -----------------------------------
+
+  var JOUR = 86400;
+  function dependantsDirects(id) {
+    return (data.Actions || []).filter(function (a) { return liste(a.Depend_de).map(num).indexOf(id) !== -1; });
+  }
+  // Ce qui suit une action : ses sous-actions et les actions qui l'attendent, en chaîne. Les actions finies ne bougent pas.
+  function suiteAction(id) {
+    var vus = {}, file = [id], r = [];
+    vus[id] = true;
+    while (file.length) {
+      var x = file.shift();
+      sousActions(x).concat(dependantsDirects(x)).forEach(function (a) {
+        if (vus[a.id]) return;
+        vus[a.id] = true;
+        file.push(a.id);
+        if (!actionFinie(a) && (a.Debut || a.Fin)) r.push(a);
+      });
+    }
+    return r;
+  }
+  function ecartEdition(a, b) {
+    var nf = saisieVersDate(b.Fin), nd = saisieVersDate(b.Debut);
+    if (a.Fin && nf && nf !== a.Fin) return Math.round((nf - a.Fin) / JOUR);
+    if (a.Debut && nd && nd !== a.Debut) return Math.round((nd - a.Debut) / JOUR);
+    return 0;
+  }
+  function joursTexte(n) { var v = Math.abs(n); return v + ' jour' + (v > 1 ? 's' : ''); }
+  function blocDecalage(a, b, cle) {
+    var ecart = ecartEdition(a, b);
+    if (!ecart) return '';
+    var suite = suiteAction(a.id);
+    if (!suite.length) return '';
+    var noms = suite.slice(0, 5).map(function (x) { return x.Intitule || 'Sans titre'; }).join(', ') + (suite.length > 5 ? '…' : '');
+    return '<div class="fr-checkbox-group sp-edition__large sp-decalage"><input type="checkbox" id="ed-dec-' + a.id + '" data-decaler="' + cle + '"' + (b.Decaler === false ? '' : ' checked') + '>' +
+      '<label class="fr-label" for="ed-dec-' + a.id + '">' + (ecart > 0 ? 'Repousser' : 'Avancer') + ' aussi de ' + joursTexte(ecart) + ' ce qui suit (' + suite.length + ' action' + (suite.length > 1 ? 's' : '') + ')' +
+      '<span class="fr-hint-text">' + esc(noms) + '. Les actions faites ou abandonnées ne bougent pas.</span></label></div>';
+  }
+  function actionsDecalage(aid, ecart) {
+    var suite = suiteAction(aid);
+    if (!ecart || !suite.length) return [];
+    return [['BulkUpdateRecord', 'Actions', suite.map(function (x) { return x.id; }), {
+      Debut: suite.map(function (x) { return x.Debut ? x.Debut + ecart * JOUR : null; }),
+      Fin: suite.map(function (x) { return x.Fin ? x.Fin + ecart * JOUR : null; })
+    }]];
+  }
+
+  // Rétroplanning : à partir d'une échéance (un jalon ou une action datée), dates au plus tard de tout ce qui y mène.
+  function calculRetro(cibleId) {
+    var cible = idx.Actions[cibleId];
+    if (!cible) return null;
+    var t = estJalon(cible) ? dateJalon(cible) : (cible.Debut || cible.Fin);
+    if (!t) return { cible: cible, lignes: [], sansDate: true };
+    var ens = {}, file = [cibleId];
+    while (file.length) {
+      var x = file.shift();
+      dependances(idx.Actions[x]).concat(x !== cibleId ? sousActions(x) : []).forEach(function (d) {
+        if (!ens[d.id] && d.id !== cibleId) { ens[d.id] = d; file.push(d.id); }
+      });
+    }
+    var duree = function (a) { return a.Debut && a.Fin && !estJalon(a) ? a.Fin - a.Debut : 0; };
+    var memo = {};
+    function finAuPlusTard(id, pile) {
+      if (memo[id] !== undefined) return memo[id];
+      var bornes = [];
+      dependantsDirects(id).forEach(function (d) {
+        if (d.id === cibleId) bornes.push(t);
+        else if (ens[d.id] && !pile[d.id]) {
+          var p2 = Object.assign({}, pile); p2[d.id] = 1;
+          var lfd = finAuPlusTard(d.id, p2);
+          // Un jalon intermédiaire garde sa date : il borne ce qui le précède.
+          bornes.push(estJalon(d) && dateJalon(d) ? Math.min(lfd, dateJalon(d)) : lfd - duree(d));
+        }
+      });
+      // Une sous-action se termine au plus tard avec son action parente.
+      var par = num(ens[id].Parent);
+      if (ens[par] && !pile[par]) { var p3 = Object.assign({}, pile); p3[par] = 1; bornes.push(finAuPlusTard(par, p3)); }
+      memo[id] = bornes.length ? Math.min.apply(null, bornes) : t;
+      return memo[id];
+    }
+    var lignes = Object.keys(ens).map(num).map(function (id) {
+      var a = ens[id], f = finAuPlusTard(id, {}), d = duree(a);
+      return { a: a, fin: f, debut: a.Debut && a.Fin && !estJalon(a) ? f - d : null,
+        ecart: (estJalon(a) ? dateJalon(a) : a.Fin) ? Math.round((f - (estJalon(a) ? dateJalon(a) : a.Fin)) / JOUR) : null };
+    }).sort(function (u, v) { return (u.fin - v.fin) || (u.a.id - v.a.id); });
+    return { cible: cible, date: t, lignes: lignes };
+  }
+  function panneauRetro() {
+    var r = calculRetro(etat.retro);
+    if (!r) return '';
+    var titre = '<h3 class="fr-h6 fr-mb-1w">Rétroplanning depuis « ' + esc(r.cible.Intitule || 'Sans titre') + ' »' + (r.date ? ' (' + esc(dateTexte(r.date)) + ')' : '') + '</h3>';
+    var fermer = '<button type="button" class="fr-btn fr-btn--sm fr-btn--tertiary" data-action="fermer-retro">Fermer</button>';
+    if (r.sansDate) return '<section class="sp-retro">' + titre + '<p class="fr-text--sm">Donnez d\'abord une date à cette échéance.</p>' + fermer + '</section>';
+    if (!r.lignes.length) {
+      return '<section class="sp-retro">' + titre + '<p class="fr-text--sm">Cette échéance ne dépend d\'aucune action. Ouvrez « Modifier », puis cochez dans « Dépend de » ce qui doit être fait avant.</p>' + fermer + '</section>';
+    }
+    var aChanger = r.lignes.filter(function (l) { return !actionFinie(l.a) && !estJalon(l.a) && (l.fin !== (estJalon(l.a) ? dateJalon(l.a) : l.a.Fin) || (l.debut && l.debut !== l.a.Debut)); }).length;
+    var tard = r.lignes.filter(function (l) { return !actionFinie(l.a) && l.ecart !== null && l.ecart < 0; }).length;
+    var h = '<section class="sp-retro">' + titre +
+      '<p class="fr-text--sm">Dates au plus tard pour tenir l\'échéance, en remontant les dépendances et les sous-actions, en gardant la durée de chaque action (jours calendaires). Les jalons intermédiaires gardent leur date. ' +
+      (tard ? '<strong>' + tard + ' action' + (tard > 1 ? 's' : '') + ' finissent trop tard.</strong>' : 'Le planning actuel tient l\'échéance.') + '</p>' +
+      '<div class="sp-defile"><table class="sp-table"><thead><tr><th scope="col">Action</th><th scope="col">Dates actuelles</th><th scope="col">Au plus tard</th><th scope="col">Écart</th></tr></thead><tbody>';
+    r.lignes.forEach(function (l) {
+      var a = l.a, ecart = '';
+      if (actionFinie(a)) ecart = badge(a.Etat, 'success', true);
+      else if (l.ecart === null) ecart = badge('Sans date', 'info', true);
+      else if (l.ecart < 0) ecart = badge('Trop tard de ' + joursTexte(l.ecart), 'error', true);
+      else if (l.ecart > 0) ecart = badge('Marge de ' + joursTexte(l.ecart), 'success', true);
+      else ecart = badge('Juste à temps', 'warning', true);
+      h += '<tr><td>' + (estJalon(a) ? '<span class="sp-losange" aria-hidden="true"></span>' : '') + esc(a.Intitule || 'Sans titre') + '</td>' +
+        '<td>' + esc(datesAction(a) || '—') + '</td><td>' + esc(l.debut ? periodeTexte(l.debut, l.fin) : dateTexte(l.fin)) + '</td><td>' + ecart + '</td></tr>';
+    });
+    return h + '</tbody></table></div><ul class="fr-btns-group fr-btns-group--inline-sm fr-btns-group--sm fr-mt-2w">' +
+      (aChanger ? '<li><button type="button" class="fr-btn" data-action="appliquer-retro">Caler les ' + aChanger + ' action' + (aChanger > 1 ? 's' : '') + ' au plus tard</button></li>' : '') +
+      '<li>' + fermer + '</li></ul></section>';
+  }
+  function appliquerRetro() {
+    var r = calculRetro(etat.retro);
+    if (!r || !r.lignes.length) return;
+    var l = r.lignes.filter(function (x) { return !actionFinie(x.a) && !estJalon(x.a); });
+    executer([['BulkUpdateRecord', 'Actions', l.map(function (x) { return x.a.id; }), {
+      Debut: l.map(function (x) { return estJalon(x.a) ? null : (x.debut || x.a.Debut || null); }),
+      Fin: l.map(function (x) { return x.fin; })
+    }]], 'Rétroplanning appliqué : ' + l.length + ' action' + (l.length > 1 ? 's' : '') + ' calée' + (l.length > 1 ? 's' : '') + ' au plus tard.', function () { etat.retro = null; });
   }
 
   function kanbanActions(acts) {
@@ -2141,6 +2281,9 @@
       if (champSa) { champSa.scrollIntoView({ block: 'center' }); champSa.focus(); }
     }
     else if (a === 'mettre-a-jour') { mettreAJour(); }
+    else if (a === 'retro') { var idr = num(el.getAttribute('data-id')); etat.retro = etat.retro === idr ? null : idr; etat.alerte = null; rendre(); var pr = document.querySelector('.sp-retro'); if (pr) pr.scrollIntoView({ block: 'nearest' }); }
+    else if (a === 'fermer-retro') { etat.retro = null; rendre(); }
+    else if (a === 'appliquer-retro') { appliquerRetro(); }
     else if (a === 'enregistrer-roles') { enregistrerRoles(); }
     else if (a === 'deplacer') {
       deplacer(el.getAttribute('data-table'), num(el.getAttribute('data-id')), el.getAttribute('data-champ'), el.getAttribute('data-valeur'));
@@ -2302,6 +2445,8 @@
     } else if (el.hasAttribute('data-brouillon')) {
       brouillon(el.getAttribute('data-brouillon'))[el.getAttribute('data-champ')] = el.value;
       if (el.hasAttribute('data-rafraichir')) rendre();
+    } else if (el.hasAttribute('data-decaler')) {
+      brouillon(el.getAttribute('data-decaler')).Decaler = el.checked;
     } else if (el.hasAttribute('data-dep')) {
       var bd = brouillon(el.getAttribute('data-dep'));
       var vd = num(el.value);
@@ -2356,7 +2501,7 @@
 
   var ficheCourante = null;
   window.addEventListener('hashchange', function () {
-    etat.alerte = null; etat.suppression = null; etat.ajout = null; etat.doublon = null; etat.pasMoi = null; etat.editionAction = null;
+    etat.alerte = null; etat.suppression = null; etat.ajout = null; etat.doublon = null; etat.pasMoi = null; etat.editionAction = null; etat.retro = null;
     var r = route();
     if (r.vue !== 'profil') etat.profilForm = null;
     if (r.vue === 'fiche' && r.id !== ficheCourante) { etat.onglet = 'presentation'; ficheCourante = r.id; }

@@ -322,3 +322,5 @@ body {
 .sp-gantt__libelle[style] { padding-left: calc(var(--sp-niveau, 0) * 1rem); }
 .sp-barre--attente { background: repeating-linear-gradient(135deg, var(--background-flat-warning) 0 6px, var(--background-contrast-warning) 6px 12px); }
 .sp-gantt__jalon--cle { background: var(--background-action-high-purple-glycine, #6E445A); outline: none; }
+.sp-retro { margin: 1rem 0; padding: 1rem 1.25rem; border-left: 4px solid var(--border-action-high-blue-france); background: var(--background-alt-blue-france); }
+.sp-decalage { padding: .5rem .75rem; background: var(--background-contrast-warning); }

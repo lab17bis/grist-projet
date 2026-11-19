@@ -21,6 +21,8 @@ Un document Grist devient l'**espace commun d'une équipe** (un service, une dir
 - **Jalons** : des dates clés (une validation, un lancement, un comité), signalés par un losange.
 - **Dépendances** : une action peut dépendre d'une ou plusieurs autres. Tant que celles-ci ne sont pas faites, elle est signalée « en attente de… ». Une action ne peut pas dépendre d'elle-même ni d'une action qui l'attend déjà.
 - **Trois affichages** : *Liste* (arborescence, modification en place), *Kanban* (par état, glisser-déposer ou boutons) et *Chronologie* (barres et jalons dans le temps, repère du jour).
+- **Décalage en chaîne** : quand on repousse ou avance la date d'une action, l'outil propose de décaler d'autant ses sous-actions et tout ce qui en dépend. Les actions faites ne bougent pas.
+- **Rétroplanning** : depuis un jalon ou une action qui a des prérequis, l'outil remonte les dépendances et les sous-actions et calcule pour chacune la date au plus tard qui permet de tenir l'échéance, en gardant sa durée. Il signale ce qui finit trop tard, la marge des autres, et peut caler toutes les actions au plus tard en un clic. Les jalons intermédiaires gardent leur date. Le calcul se fait en jours calendaires.
 - **Pour chaque action** : responsable, dates, état, notes. L'avancement du projet est calculé sur les actions sans sous-action, hors jalons.
 
 ### Les droits
