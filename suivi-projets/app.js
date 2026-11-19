@@ -582,6 +582,26 @@
         a.push(['AddColumn', m.table, m.c.id, { type: m.c.type, isFormula: true, formula: m.c.formula || '', label: m.c.label || m.c.id, widgetOptions: opts(m.c) }]);
       });
       return a.length ? grist.docApi.applyUserActions(a) : null;
+    }).then(function () {
+      // Colonnes ajoutées à une table existante : sa valeur par défaut (« Membre », vrai…)
+      // ne vaut que pour les nouvelles lignes. On la donne aussi aux lignes déjà présentes.
+      var parTable = {};
+      complements.forEach(function (m) {
+        if (m.c.isFormula || !m.c.formula) return;
+        var f = String(m.c.formula).trim(), v;
+        if (f === 'True') v = true; else if (f === 'False') v = false;
+        else if (/^"[^"]*"$/.test(f)) v = f.slice(1, -1); else return;
+        (parTable[m.table] = parTable[m.table] || {})[m.c.id] = v;
+      });
+      return Promise.all(Object.keys(parTable).map(function (t) {
+        return grist.docApi.fetchTable(t).then(function (c) {
+          var ids = c.id || [];
+          if (!ids.length) return null;
+          var champs = {};
+          Object.keys(parTable[t]).forEach(function (k) { champs[k] = ids.map(function () { return parTable[t][k]; }); });
+          return grist.docApi.applyUserActions([['BulkUpdateRecord', t, ids, champs]]);
+        });
+      }));
     }).then(metaFraiche).then(function (m) {
       // 3. Libellés affichés des références et dépendances des formules de déclenchement.
       function col(t, c) { var tb = m.tables.filter(function (x) { return x.tableId === t; })[0]; return tb && m.cols.filter(function (x) { return x.parentId === tb.id && x.colId === c; })[0]; }
