@@ -2,6 +2,15 @@
 
 Les adresses `/v1/` ne changent pas : chaque version ajoute ou corrige, sans retirer ce qui existe.
 
+## 2026-11-24 (page publique)
+
+### Ajouté
+- Page publique en lecture seule : banque des projets (liste, recherche, fiche de présentation). Les projets « Restreint » ne sont jamais publiés ; un réglage facultatif limite la publication à certaines phases.
+- La page publique ne lit ni les personnes, ni les comptes, ni le plan d'action, ni le journal, ni les documents : l'écran « Qui êtes-vous ? », le profil et la création de compte n'existent pas en public.
+- Module commun `commun/grist-public.js` (et `.css`) : lit le document par l'API REST de Grist, en lecture seule, sans compte.
+- Onglet Publication : saisissez le lien du document Grist partagé en lecture publique, l'outil construit le lien de la page publique, à copier ou à ouvrir ; le lien est enregistré avec les réglages.
+- Option `integre=1` : page sans en-tête ni pied propres, pour l'intégrer dans un autre site.
+
 ## 2026-11-24 (documentation)
 
 ### Modifié

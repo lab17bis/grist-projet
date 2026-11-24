@@ -74,7 +74,8 @@
   // État de l'application
   // ---------------------------------------------------------------------------
 
-  var DEMO = window.self === window.top;
+  var PUBLIC = !!(window.GristPublic && window.GristPublic.actif);
+  var DEMO = window.self === window.top && !PUBLIC;
   var meta = { colonnes: [], tables: [], colConfig: false };
   var data = {};      // table -> tableau de lignes
   var idx = {};       // table -> { id: ligne }
@@ -224,8 +225,16 @@
         appliquerReglages(r);
       }).catch(function () { appliquerReglages({}); });
     return Promise.all([config].concat(TABLES.map(function (t) {
+      // Page publique : ni personnes, ni comptes, ni journal, ni documents, ni actions ne sont lus.
+      if (PUBLIC && t !== 'Structures' && t !== 'Projets') { data[t] = []; return Promise.resolve(); }
       return grist.docApi.fetchTable(t)
-        .then(function (cols) { data[t] = lignesDepuisColonnes(cols); })
+        .then(function (cols) {
+          data[t] = lignesDepuisColonnes(cols);
+          if (PUBLIC && t === 'Projets') {
+            var ph = String((reglages.publication && reglages.publication.phases) || '').split(',').map(function (x) { return x.trim(); }).filter(Boolean);
+            data[t] = data[t].filter(function (x) { return x.Visibilite !== 'Restreint' && (!ph.length || ph.indexOf(x.Phase) >= 0); });
+          }
+        })
         .catch(function () { data[t] = []; });
     })));
   }
@@ -500,6 +509,10 @@
   // ---------------------------------------------------------------------------
 
   function route() {
+    var r = routeBrute();
+    return PUBLIC && r.vue !== 'banque' && r.vue !== 'fiche' ? { vue: 'banque' } : r;
+  }
+  function routeBrute() {
     var h = (location.hash || '').replace(/^#\/?/, '');
     var m;
     if (h === 'nouveau') return { vue: 'form', id: null };
@@ -794,7 +807,14 @@
         zone.innerHTML = '<h1 class="fr-h3">Banque des projets</h1><p class="fr-text--sm">Tous les projets, par phase</p>' +
           '<div class="fr-card fr-card--sm fr-mb-2w"><div class="fr-card__body"><div class="fr-card__content"><h2 class="fr-card__title">Exemple de projet</h2><p class="fr-card__desc">L\'en-tête et le pied de page ci-dessus encadrent tous les écrans de l\'outil.</p></div></div></div>';
       },
-      publication: { mode: 'connecte', adresseWidget: location.href.split('#')[0].split('?')[0], texte: 'Les projets restreints ne sont visibles que des personnes désignées et du rôle Administration (onglet Rôles).' },
+      publication: { mode: 'connecte', adresseWidget: location.href.split('#')[0].split('?')[0], texte: 'Les projets restreints ne sont visibles que des personnes désignées et du rôle Administration (onglet Rôles).',
+        publier: {
+          lienDoc: (brouillonReglages.publication && brouillonReglages.publication.lienDoc) || '',
+          texte: 'La banque des projets s\'affiche en page complète, sans compte Grist, en lecture seule : liste, recherche et fiche de présentation. Les projets « Restreint » ne sont jamais publiés. Ni les personnes, ni le plan d\'action, ni le journal, ni les documents ne sont lus par la page publique.',
+          champs: [{ libelle: 'Phases publiées (facultatif)', aide: 'Noms de phases séparés par des virgules. Vide : toutes les phases des projets non restreints.', exemple: 'Réalisation, Clôture', valeur: (brouillonReglages.publication && brouillonReglages.publication.phases) || '' }],
+          construire: function (l) { return window.GristPublic ? window.GristPublic.lien(location.href.split('#')[0].split('?')[0], { doc: l, table: 'Projets' }) : null; },
+          surChangement: function (l, champs) { brouillonReglages.publication = { lienDoc: l, phases: (champs && champs[0] && champs[0].valeur) || '' }; }
+        } },
       surEnregistrer: enregistrerReglages
     });
   }
@@ -966,7 +986,8 @@
       '<p class="sp-fiche-meta fr-mb-0">' + esc(cheminDe(p.Structure_porteuse) || 'Structure non renseignée') + '</p></div>' +
       '<a class="fr-btn fr-btn--secondary fr-icon-edit-line fr-btn--icon-left" href="#/projet/' + id + '/modifier">Modifier la fiche</a></div>';
 
-    var onglets = [
+    if (PUBLIC) etat.onglet = 'presentation';
+    var onglets = PUBLIC ? [['presentation', 'Présentation']] : [
       ['presentation', 'Présentation'],
       ['plan', "Plan d'action (" + acts.length + ')'],
       ['journal', 'Journal (' + jour.length + ')'],
@@ -1520,6 +1541,7 @@
   // --- Composants partagés : navigation, sélecteur de mode, kanban, calendrier --
 
   function navigation(active) {
+    if (PUBLIC) return '';
     var liens = [['banque', '#/', 'Banque des projets']];
     if (etat.moi.profil) liens.push(['travail', '#/travail', 'Mon travail']);
     liens.push(['pilotage', '#/pilotage', "Vue d'ensemble"]);
@@ -2617,7 +2639,7 @@
     grist.onRecords(function () {
       clearTimeout(attente);
       attente = setTimeout(function () {
-        charger().then(function () { return aTable('Projets') ? assurerCompte() : null; }).then(function () {
+        charger().then(function () { return aTable('Projets') && !PUBLIC ? assurerCompte() : null; }).then(function () {
           appliquerTheme();
           if (!aTable('Projets')) { rendre(); return; }
           // Première visite sans profil : on propose de le créer.

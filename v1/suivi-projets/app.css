@@ -327,3 +327,6 @@ body {
 
 /* Coque à onglets (ajout 2026-11-24) */
 #sp-coque #sp-app { padding-left: 0; padding-right: 0; }
+
+/* Page publique : lecture seule. */
+.gp-public [data-action="nouveau"], .gp-public a[href$="/modifier"] { display: none !important; }
