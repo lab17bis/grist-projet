@@ -715,16 +715,17 @@
   ];
   var COULEURS_REGLABLES = [['phases', 'phases', 'Couleur des phases'], ['etats', 'etats', 'Couleur des états'], ['typesJournal', 'typesJournal', 'Couleur des types de messages']];
 
+  var configLab = null, ongletReglages = 'reglages';
   function vueReglages() {
-    if (DEMO) return '<div class="fr-alert fr-alert--info"><p>Les réglages se font dans Grist, par un propriétaire du document.</p></div>';
+    if (configLab && document.getElementById('sp-config')) { ongletReglages = configLab.ongletActif(); modifieReglages = configLab.estModifie(); } else { ongletReglages = 'reglages'; modifieReglages = false; }
     if (!brouillonReglages) brouillonReglages = JSON.parse(JSON.stringify(reglages || {}));
+    return '<div class="sp-titre-ligne"><h1 class="fr-h3">Configuration du suivi</h1><a class="fr-link" href="#/">Retour à la banque des projets</a></div>' + blocAlerte() + '<div id="sp-config"></div>';
+  }
+  var modifieReglages = false;
+  function reglagesPropres() {
     var b = brouillonReglages;
     b.listes = b.listes || {}; b.couleurs = b.couleurs || {};
-    var h = '<div class="sp-titre-ligne"><h1 class="fr-h3">Réglages du suivi</h1><a class="fr-link" href="#/">Retour à la banque des projets</a></div>' +
-      '<p class="fr-text--sm">Réservé aux propriétaires du document. Les réglages sont enregistrés dans la description de la colonne <code>' + NOM_COLONNE_CONFIG + '</code> de la table Projets.</p>' +
-      blocAlerte() +
-      '<div class="sp-reglages">' +
-      '<section><h2 class="fr-h5">En-tête et pied de page</h2><div id="sp-reglages-page"></div></section>' +
+    var h = '<div class="cl-panneau"><p class="fr-text--sm">Réservé aux propriétaires du document. Les réglages sont enregistrés dans la description de la colonne <code>' + NOM_COLONNE_CONFIG + '</code> de la table Projets.</p><div class="sp-reglages">' +
       '<section><h2 class="fr-h5">Listes de valeurs</h2><p class="fr-text--sm">Une valeur par ligne. À l\'enregistrement, les listes de choix des colonnes Grist sont mises à jour. Renommer une valeur ne modifie pas les projets existants.</p>';
     LISTES_REGLABLES.forEach(function (l) {
       var val = (b.listes[l[0]] && b.listes[l[0]].length ? b.listes[l[0]] : DEFAUTS[l[0]]).join('\n');
@@ -745,16 +746,14 @@
       });
       h += '</div>';
     });
-    h += '</section>' + sectionRoles() + '<section><h2 class="fr-h5">Autres réglages</h2>' +
+    h += '</section>' + '<section><h2 class="fr-h5">Autres réglages</h2>' +
       '<div class="fr-input-group"><label class="fr-label" for="rg-domaine">Domaine des adresses électroniques<span class="fr-hint-text">Sert à suggérer l\'adresse d\'un collègue (prénom.nom@domaine). Exemple : mon-administration.fr. Vide : pas de suggestion.</span></label>' +
       '<input class="fr-input" id="rg-domaine" data-reglage="domaineCourriel" value="' + esc(b.domaineCourriel || '') + '"></div>' +
       '<div class="fr-input-group"><label class="fr-label" for="rg-jours">Alerte « projet à relancer » après (jours sans activité)</label>' +
-      '<input class="fr-input" type="number" min="1" id="rg-jours" data-reglage="joursAlerte" value="' + esc(b.joursAlerte || 60) + '"></div>' +
-      '</section></div>' +
-      '<ul class="fr-btns-group fr-btns-group--inline-md"><li><button type="button" class="fr-btn" data-action="enregistrer-reglages">Enregistrer les réglages</button></li>' +
-      '<li><button type="button" class="fr-btn fr-btn--secondary" data-action="annuler-reglages">Annuler les modifications</button></li></ul>';
-    return h;
+      '<input class="fr-input" type="number" min="1" id="rg-jours" data-reglage="joursAlerte" value="' + esc(b.joursAlerte || 60) + '"></div>';
+    return h + '</section></div></div>';
   }
+  function reglagesRoles() { return '<div class="cl-panneau sp-reglages">' + sectionRoles() + '</div>'; }
 
   // Rôle « Administration » : voit et gère tous les projets, y compris restreints. Attribué par les propriétaires.
   var rolesBrouillon = {};
@@ -783,14 +782,31 @@
   }
 
   function monterReglages() {
-    var z = document.getElementById('sp-reglages-page');
-    if (!z || !window.PageEditeur) return;
+    var z = document.getElementById('sp-config');
+    if (!z || !window.ConfigLab || !brouillonReglages) return;
     brouillonReglages.page = brouillonReglages.page || { marque: '', titre: 'Suivi des projets', pied: { accessibilite: '' } };
-    window.PageEditeur.monter(z, brouillonReglages.page, function () {});
+    configLab = window.ConfigLab.monter(z, {
+      nom: 'Configuration du suivi de projets',
+      page: brouillonReglages.page,
+      ongletInitial: ongletReglages,
+      modifieInitial: modifieReglages,
+      onglets: [
+        { id: 'reglages', libelle: 'Réglages', rendre: function (zone) { zone.innerHTML = reglagesPropres(); } },
+        { id: 'roles', libelle: 'Rôles', rendre: function (zone) { zone.innerHTML = reglagesRoles(); } }
+      ],
+      apercu: function (zone) {
+        zone.innerHTML = '<h1 class="fr-h3">Banque des projets</h1><p class="fr-text--sm">Tous les projets, par phase</p>' +
+          '<div class="fr-card fr-card--sm fr-mb-2w"><div class="fr-card__body"><div class="fr-card__content"><h2 class="fr-card__title">Exemple de projet</h2><p class="fr-card__desc">L\'en-tête et le pied de page ci-dessus encadrent tous les écrans de l\'outil.</p></div></div></div>';
+      },
+      publication: { mode: 'connecte', adresseWidget: location.href.split('#')[0].split('?')[0], texte: 'Les projets restreints ne sont visibles que des personnes désignées et du rôle Administration (onglet Rôles).' },
+      surEnregistrer: enregistrerReglages,
+      surAnnuler: function () { brouillonReglages = null; etat.alerte = null; location.hash = '#/'; }
+    });
   }
 
   function enregistrerReglages() {
     var b = brouillonReglages;
+    if (DEMO) { if (configLab) configLab.message('info', 'Mode démonstration : rien n\'est enregistré. Dans Grist, les réglages sont enregistrés dans le document.'); return; }
     LISTES_REGLABLES.forEach(function (l) {
       var champ = document.getElementById('rg-' + l[0]);
       if (!champ) return;

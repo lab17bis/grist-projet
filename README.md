@@ -42,7 +42,7 @@ Démonstration avec des données fictives (rien n'est enregistré) : <https://la
 
 1. **Ajouter le widget** : dans un document Grist, même vide, ajoutez une page *Personnalisé* sur n'importe quelle table, avec l'adresse `https://lab17bis.github.io/grist-projet/v1/suivi-projets/` et l'**accès complet au document**.
 2. **Installer** : le widget propose *Créer les tables*, ou *avec un exemple fictif*. Il crée les tables, leurs formules et les **règles d'accès** qui protègent les projets restreints (schéma : [`suivi-projets/schema.json`](suivi-projets/schema.json)). À faire par un propriétaire du document. Les tables existantes ne sont pas modifiées ; si le document a déjà des règles pour ces tables, elles ne sont pas remplacées.
-3. **Régler** : en bas du widget, ouvrez *Réglages du suivi*, puis enregistrez.
+3. **Régler** : en haut du widget, cliquez sur *Configurer* (le lien *Réglages du suivi*, en bas, y mène aussi), puis enregistrez.
 4. **Inviter** les personnes dans le document (*Partager*), en éditeur pour les contributeurs, en lecteur pour la consultation.
 
 Pour plus de clarté, rattachez ensuite la vue personnalisée à la table `Projets` et supprimez la table de départ. Le modèle [`modele/modele-grist-projet.grist`](modele/modele-grist-projet.grist) reste disponible, pages comprises.
@@ -53,7 +53,7 @@ Un document installé avec une version précédente continue de fonctionner. Un 
 
 ## Le régler
 
-L'écran *Réglages du suivi* regroupe :
+La page *Configurer* a cinq onglets : *Réglages*, *Rôles*, *En-tête et pied*, *Aperçu* (le rendu avec les réglages en cours) et *Publication* (qui peut utiliser l'outil, adresse du widget). L'onglet *Réglages* regroupe :
 
 | Rubrique | Ce qu'on y règle |
 | --- | --- |
