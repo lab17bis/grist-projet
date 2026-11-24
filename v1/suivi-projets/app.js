@@ -689,16 +689,17 @@
   function rendre() {
     var r = route();
     var html;
+    monterCoque();
+    if (configLab && etat.alerte && configLab.ongletActif() !== 'vue') { configLab.message(etat.alerte.type, etat.alerte.texte); etat.alerte = null; }
+    if (configLab) configLab.rafraichir('roles');
     if (!DEMO && !aTable('Projets')) { app.innerHTML = vueInstallation(); return; }
     if (r.vue === 'fiche') html = vueFiche(r.id);
     else if (r.vue === 'form') html = vueFormulaire(r.id);
     else if (r.vue === 'pilotage') html = vuePilotage();
     else if (r.vue === 'profil') html = vueProfil();
     else if (r.vue === 'travail') html = vueTravail();
-    else if (r.vue === 'reglages') html = vueReglages();
     else html = vueBanque();
     app.innerHTML = bandeauMiseAJour() + html + piedContact(r);
-    if (r.vue === 'reglages') monterReglages();
   }
 
   // --- Réglages (propriétaires du document) ---------------------------------
@@ -715,13 +716,7 @@
   ];
   var COULEURS_REGLABLES = [['phases', 'phases', 'Couleur des phases'], ['etats', 'etats', 'Couleur des états'], ['typesJournal', 'typesJournal', 'Couleur des types de messages']];
 
-  var configLab = null, ongletReglages = 'reglages';
-  function vueReglages() {
-    if (configLab && document.getElementById('sp-config')) { ongletReglages = configLab.ongletActif(); modifieReglages = configLab.estModifie(); } else { ongletReglages = 'reglages'; modifieReglages = false; }
-    if (!brouillonReglages) brouillonReglages = JSON.parse(JSON.stringify(reglages || {}));
-    return '<div class="sp-titre-ligne"><h1 class="fr-h3">Configuration du suivi</h1><a class="fr-link" href="#/">Retour à la banque des projets</a></div>' + blocAlerte() + '<div id="sp-config"></div>';
-  }
-  var modifieReglages = false;
+  var configLab = null;
   function reglagesPropres() {
     var b = brouillonReglages;
     b.listes = b.listes || {}; b.couleurs = b.couleurs || {};
@@ -781,15 +776,16 @@
       'Grist a refusé l\'enregistrement : seuls les propriétaires du document attribuent le rôle « Administration ».');
   }
 
-  function monterReglages() {
-    var z = document.getElementById('sp-config');
-    if (!z || !window.ConfigLab || !brouillonReglages) return;
+  function monterCoque() {
+    var z = document.getElementById('sp-coque');
+    if (configLab || !z || !window.ConfigLab) return;
+    brouillonReglages = JSON.parse(JSON.stringify(reglages || {}));
     brouillonReglages.page = brouillonReglages.page || { marque: '', titre: 'Suivi des projets', pied: { accessibilite: '' } };
     configLab = window.ConfigLab.monter(z, {
-      nom: 'Configuration du suivi de projets',
+      nom: 'Suivi de projets',
+      vue: { libelle: 'Projets', element: app },
+      ongletInitial: route().vue === 'reglages' ? 'reglages' : 'vue',
       page: brouillonReglages.page,
-      ongletInitial: ongletReglages,
-      modifieInitial: modifieReglages,
       onglets: [
         { id: 'reglages', libelle: 'Réglages', rendre: function (zone) { zone.innerHTML = reglagesPropres(); } },
         { id: 'roles', libelle: 'Rôles', rendre: function (zone) { zone.innerHTML = reglagesRoles(); } }
@@ -799,8 +795,7 @@
           '<div class="fr-card fr-card--sm fr-mb-2w"><div class="fr-card__body"><div class="fr-card__content"><h2 class="fr-card__title">Exemple de projet</h2><p class="fr-card__desc">L\'en-tête et le pied de page ci-dessus encadrent tous les écrans de l\'outil.</p></div></div></div>';
       },
       publication: { mode: 'connecte', adresseWidget: location.href.split('#')[0].split('?')[0], texte: 'Les projets restreints ne sont visibles que des personnes désignées et du rôle Administration (onglet Rôles).' },
-      surEnregistrer: enregistrerReglages,
-      surAnnuler: function () { brouillonReglages = null; etat.alerte = null; location.hash = '#/'; }
+      surEnregistrer: enregistrerReglages
     });
   }
 
@@ -839,12 +834,10 @@
     return grist.docApi.applyUserActions(actions).then(function () {
       meta.colConfig = true;
       appliquerReglages(b);
-      brouillonReglages = null;
-      etat.alerte = { type: 'success', texte: 'Réglages enregistrés.' };
+      if (configLab) { configLab.enregistre(); configLab.message('success', 'Réglages enregistrés.'); }
       rendre();
     }).catch(function (err) {
-      etat.alerte = { type: 'error', texte: 'Enregistrement impossible : seuls les propriétaires du document peuvent modifier les réglages. (' + ((err && err.message) || err) + ')' };
-      rendre();
+      if (configLab) configLab.message('error', 'Enregistrement impossible : seuls les propriétaires du document peuvent modifier les réglages. (' + ((err && err.message) || err) + ')');
     });
   }
 
@@ -2290,7 +2283,9 @@
   // Événements
   // ---------------------------------------------------------------------------
 
-  app.addEventListener('click', function (e) {
+  // Les réglages et les rôles sont dans la coque à onglets, hors de #sp-app : on écoute la coque entière.
+  var ecoute = document.getElementById('sp-coque') || app;
+  ecoute.addEventListener('click', function (e) {
     var inst = e.target.closest('[data-installer]');
     if (inst) { inst.disabled = true; installer(inst.getAttribute('data-installer') === 'exemple'); return; }
     var el = e.target.closest('[data-action]');
@@ -2382,7 +2377,7 @@
 
   // Glisser-déposer des cartes de kanban
   // Réglages : champs simples et couleurs des étiquettes.
-  app.addEventListener('input', function (e) {
+  ecoute.addEventListener('input', function (e) {
     var t = e.target;
     if (!brouillonReglages) return;
     if (t.hasAttribute('data-reglage')) {
@@ -2390,20 +2385,20 @@
       brouillonReglages[k] = t.type === 'number' ? Number(t.value) : t.value;
     }
   });
-  app.addEventListener('change', function (e) {
+  ecoute.addEventListener('change', function (e) {
     var t = e.target;
     if (!brouillonReglages || !t.hasAttribute('data-reglage-couleur')) return;
     var g = t.getAttribute('data-reglage-couleur');
     brouillonReglages.couleurs[g] = brouillonReglages.couleurs[g] || {};
     brouillonReglages.couleurs[g][t.getAttribute('data-valeur')] = t.value;
-    rendre();
+    if (configLab) { configLab.rafraichir('reglages'); configLab.modifie(true); }
   });
-  app.addEventListener('click', function (e) {
+  ecoute.addEventListener('click', function (e) {
     var b = e.target.closest('[data-reglage-couleur-defaut]');
     if (!b || !brouillonReglages) return;
     var g = b.getAttribute('data-reglage-couleur-defaut');
     if (brouillonReglages.couleurs[g]) delete brouillonReglages.couleurs[g][b.getAttribute('data-valeur')];
-    rendre();
+    if (configLab) { configLab.rafraichir('reglages'); configLab.modifie(true); }
   });
 
   app.addEventListener('dragstart', function (e) {
@@ -2439,7 +2434,7 @@
     deplacer(source[0], num(source[1]), col.getAttribute('data-drop-champ'), col.getAttribute('data-drop-valeur'));
   });
 
-  app.addEventListener('input', function (e) {
+  ecoute.addEventListener('input', function (e) {
     var el = e.target;
     if (el.hasAttribute('data-filtre') && el.type === 'search') {
       etat.filtres.q = el.value;
@@ -2471,7 +2466,7 @@
     if (el.hasAttribute('data-profil') && etat.profilForm) etat.profilForm[el.getAttribute('data-profil')] = el.value;
   });
 
-  app.addEventListener('change', function (e) {
+  ecoute.addEventListener('change', function (e) {
     var el = e.target;
     if (el.hasAttribute('data-filtre') && el.type !== 'search') {
       var cle = el.getAttribute('data-filtre');
@@ -2557,6 +2552,7 @@
     var r = route();
     if (r.vue !== 'profil') etat.profilForm = null;
     if (r.vue === 'fiche' && r.id !== ficheCourante) { etat.onglet = 'presentation'; ficheCourante = r.id; }
+    if (configLab) configLab.onglet(r.vue === 'reglages' ? 'reglages' : 'vue');
     rendre();
     window.scrollTo(0, 0);
   });

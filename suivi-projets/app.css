@@ -324,3 +324,6 @@ body {
 .sp-gantt__jalon--cle { background: var(--background-action-high-purple-glycine, #6E445A); outline: none; }
 .sp-retro { margin: 1rem 0; padding: 1rem 1.25rem; border-left: 4px solid var(--border-action-high-blue-france); background: var(--background-alt-blue-france); }
 .sp-decalage { padding: .5rem .75rem; background: var(--background-contrast-warning); }
+
+/* Coque à onglets (ajout 2026-11-24) */
+#sp-coque #sp-app { padding-left: 0; padding-right: 0; }
