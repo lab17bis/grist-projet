@@ -2,6 +2,11 @@
 
 Les adresses `/v1/` ne changent pas : chaque version ajoute ou corrige, sans retirer ce qui existe.
 
+## 2026-11-25 (page de configuration commune)
+
+### Amélioré
+- Mise à jour de la coque de configuration commune aux widgets du Lab (nouvelle option d'aperçu réel, sans effet ici : l'aperçu de ce widget garde son rendu propre).
+
 ## 2026-11-25 (champs personnalisables)
 
 ### Ajouts
