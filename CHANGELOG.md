@@ -2,6 +2,18 @@
 
 Les adresses `/v1/` ne changent pas : chaque version ajoute ou corrige, sans retirer ce qui existe.
 
+## 2026-11-25 (champs personnalisables)
+
+### Ajouts
+- Réglages > « Champs de la fiche projet » : masquer les champs d'origine (mission, objectifs, origine, structures associées, dates, thématiques) et ajouter ses propres champs (texte court ou long, choix, date, nombre, obligatoire ou non, affiché ou non sur la carte). Chaque champ ajouté crée une colonne de la table `Projets` et apparaît dans le formulaire, la fiche et la carte.
+- L'onglet Aperçu montre la vraie page (banque des projets et fiche d'un projet) avec les réglages en cours, au lieu d'un exemple fixe.
+
+### Changements
+- Le profil de la personne connectée est créé automatiquement quand son adresse est de la forme prénom.nom@domaine. Plus de redirection forcée vers « Qui êtes-vous ? » : un simple bandeau invite à créer son profil si l'adresse ne le permet pas.
+
+### Corrections
+- Enregistrer un projet n'échoue plus quand une colonne a été supprimée à la main dans Grist (erreur « KeyError 'Mission' ») : le widget n'envoie que les colonnes qui existent.
+
 ## 2026-11-25 (audit de sécurité)
 
 ### Sécurité

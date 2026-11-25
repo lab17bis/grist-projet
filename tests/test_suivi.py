@@ -427,8 +427,10 @@ with sync_playwright() as p:
     pg4, fr4 = ouvrir_grist("nouveau", t4, [], "nouveau@exemple.fr")
     act4 = pg4.evaluate("window.__ACTIONS__ || []")
     ok("nouvel agent : ligne Comptes créée", any(a[0] == "AddRecord" and a[1] == "Comptes" for a in act4), act4)
-    ok("nouvel agent : redirigé vers « Qui êtes-vous ? »", fr4.locator("h1:has-text('Qui êtes-vous')").count() == 1)
-    ok("nouvel agent : son adresse affichée", "nouveau@exemple.fr" in fr4.locator("#sp-app").inner_text())
+    ok("nouvel agent : plus de redirection vers « Qui êtes-vous ? »", fr4.locator("h1:has-text('Qui êtes-vous')").count() == 0)
+    ok("nouvel agent : invité à créer son profil, sans y être forcé", fr4.locator("a[href='#/profil']").count() >= 1)
+    fr4.locator("a[href='#/profil']").first.click()
+    ok("nouvel agent : son adresse affichée sur « Mon profil »", "nouveau@exemple.fr" in fr4.locator("#sp-app").inner_text())
     ok("nouvel agent : plus de rattachement manuel", fr4.locator("button[data-action='rattacher']").count() == 0)
     pg4.screenshot(path=OUT + "-profil.png", full_page=True)
     pg4.close()
@@ -444,6 +446,9 @@ with sync_playwright() as p:
     # Nouvel agent qui crée son profil (alerte doublon puis création)
     t5 = copy.deepcopy(donnees); t5["Comptes"] = []
     pg5, fr5 = ouvrir_grist("creation", t5, [], "claire@exemple.fr")
+    ok("adresse sans prénom.nom : pas de profil automatique, pas de redirection",
+       fr5.locator(".sp-cartes, h1").first.is_visible() and "#/profil" not in pg5.evaluate("location.href") and fr5.locator("#pr-nom").count() == 0)
+    fr5.locator("a[href='#/profil']").first.click()
     fr5.locator("#pr-nom").fill("Exemple Camille")
     fr5.locator("#pr-structure").select_option(index=1)
     fr5.locator("form[data-form='mon-profil'] button[type='submit']").click()
@@ -458,6 +463,17 @@ with sync_playwright() as p:
        and any(a[0] == "UpdateRecord" and a[1] == "Comptes" and a[3].get("Profil") for a in act5), act5)
     ok("création profil : confirmation", fr5.locator(".fr-alert--success").count() == 1)
     pg5.close()
+
+    # Adresse prénom.nom : le profil est créé tout seul, sans passer par un écran
+    t8 = copy.deepcopy(donnees); t8["Comptes"] = []
+    pg8, fr8 = ouvrir_grist("auto", t8, [], "sophie.durand@exemple.fr")
+    pg8.wait_for_timeout(900)
+    act8 = pg8.evaluate("window.__ACTIONS__ || []")
+    ok("profil automatique : Personnes « DURAND Sophie » puis Comptes",
+       any(a[0] == "AddRecord" and a[1] == "Personnes" and a[3].get("Nom") == "DURAND Sophie" for a in act8)
+       and any(a[0] == "UpdateRecord" and a[1] == "Comptes" and a[3].get("Profil") for a in act8), act8)
+    ok("profil automatique : aucun écran « Qui êtes-vous ? »", fr8.locator("#pr-nom").count() == 0 and "#/profil" not in pg8.evaluate("location.href"))
+    pg8.close()
 
     # Lecteur : Grist refuse la ligne Comptes
     t6 = copy.deepcopy(donnees); t6["Comptes"] = []

@@ -53,15 +53,20 @@ Un document installé avec une version précédente continue de fonctionner. Un 
 
 ## Le régler
 
-La barre d'onglets compte six onglets : *Projets* (l'outil), *Réglages*, *Rôles*, *En-tête et pied*, *Aperçu* (le rendu avec les réglages en cours) et *Publication* (qui peut utiliser l'outil, adresse du widget). L'onglet *Réglages* regroupe :
+La barre d'onglets compte six onglets : *Projets* (l'outil), *Réglages*, *Rôles*, *En-tête et pied*, *Aperçu* (la vraie page, banque et fiche d'un projet, avec les réglages en cours, même non enregistrés) et *Publication* (qui peut utiliser l'outil, adresse du widget). L'onglet *Réglages* regroupe :
 
 | Rubrique | Ce qu'on y règle |
 | --- | --- |
 | En-tête et pied de page | Logo, bloc-marque, titre, sous-titre, boutons, pied de page, mention d'accessibilité |
+| Champs de la fiche projet | Masquer les champs d'origine (mission, objectifs, origine, dates, thématiques…) et ajouter ses propres champs : texte court ou long, choix dans une liste, date, nombre. Chaque champ ajouté devient une colonne de la table `Projets`, affichée dans le formulaire, la fiche et, au choix, sur la carte. Un champ masqué n'est jamais supprimé : ses données restent dans Grist |
 | Listes de valeurs | Phases, états, origines, thématiques, états des actions, types d'entrées du journal, types de documents. Les choix des colonnes Grist sont mis à jour en même temps |
 | Couleurs des étiquettes | Une couleur par valeur |
 | Rôle « Administration » | Les personnes qui voient et gèrent tous les projets |
 | Autres réglages | Domaine des adresses électroniques (suggestion d'adresse et contrôle des profils), délai avant l'alerte « projet à relancer » |
+
+**Profil.** La personne connectée est reconnue par l'adresse de son compte Grist, sans écran de connexion. Si son adresse est de la forme `prenom.nom@domaine`, son profil est créé automatiquement (« NOM Prénom »), modifiable ensuite dans *Mon profil*. Sinon, un bandeau l'invite à créer son profil, sans l'y forcer. Sur la page publique, aucun profil ni identification n'est demandé.
+
+**Colonne supprimée à la main.** Le widget n'envoie que les champs dont la colonne existe : supprimer une colonne dans Grist ne bloque plus l'enregistrement d'un projet.
 
 Les réglages sont enregistrés en JSON dans la **description de la colonne `Config_suivi`** de la table `Projets`. Ne supprimez pas cette colonne.
 

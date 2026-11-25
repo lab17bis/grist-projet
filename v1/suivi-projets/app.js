@@ -486,6 +486,27 @@
   var REFUS_PERSONNE = "Grist a refusé l'enregistrement. Une adresse email ne peut servir qu'à un seul profil, " +
     "et un profil ne peut plus être modifié que par son titulaire dès qu'il s'est connecté.";
 
+  // « claire.martin@domaine » devient « MARTIN Claire ». Sans prénom.nom dans l'adresse : pas de profil automatique.
+  function nomDepuisEmail(email) {
+    var m = /^([a-zà-ÿ]+(?:[-'][a-zà-ÿ]+)*)\.([a-zà-ÿ]+(?:[-'][a-zà-ÿ]+)*)@/i.exec(email || '');
+    if (!m) return '';
+    var prenom = m[1].toLowerCase().replace(/(^|[-'])([a-zà-ÿ])/g, function (x, a, b) { return a + b.toUpperCase(); });
+    return m[2].toUpperCase() + ' ' + prenom;
+  }
+
+  function creerProfilAuto() {
+    var nom = nomDepuisEmail(etat.moi.email);
+    if (!nom || personneProche(nom) || personneParEmail(etat.moi.email)) { rendre(); return; }
+    ecrire([['AddRecord', 'Personnes', null, { Nom: nom }]])
+      .then(function (res) { return ecrire([['UpdateRecord', 'Comptes', etat.moi.compte.id, { Profil: res.retValues[0] }]]); })
+      .then(function () { return DEMO ? null : charger(); })
+      .then(function () {
+        etat.alerte = { type: 'success', texte: 'Votre profil a été créé à partir de votre adresse : « ' + nom + ' ». Corrigez-le si besoin dans « Mon profil ».' };
+        rendre();
+      })
+      .catch(function () { rendre(); });
+  }
+
   function creerMonProfil(nom, structure) {
     etat.alerte = null;
     ecrire([['AddRecord', 'Personnes', null, { Nom: nom, Structure: structure }]])
@@ -715,6 +736,95 @@
     app.innerHTML = bandeauMiseAJour() + html + piedContact(r);
   }
 
+  // --- Champs de la fiche projet : masquer ceux d'origine, ajouter les siens ------
+
+  var CHAMPS_MASQUABLES = [
+    ['Resume', 'En bref'], ['Origine', 'Origine du projet'], ['Structures_associees', 'Structures associées'],
+    ['Commanditaire', 'Mission confiée par'], ['Mission', 'Mission confiée'], ['Objectifs', 'Objectifs attendus'],
+    ['Date_debut', 'Début'], ['Echeance', 'Échéance prévisionnelle'], ['Thematiques', 'Thématiques']
+  ];
+  var TYPES_CHAMP = [['court', 'Texte court', 'Text'], ['long', 'Texte long', 'Text'], ['choix', 'Choix dans une liste', 'Choice'],
+    ['date', 'Date', 'Date'], ['nombre', 'Nombre', 'Numeric']];
+
+  function masque(champ) { return (reglages.champsMasques || []).indexOf(champ) !== -1; }
+
+  // Champs personnalisés dont la colonne existe dans la table Projets.
+  function champsPerso() {
+    return (Array.isArray(reglages.champsPerso) ? reglages.champsPerso : []).filter(function (c) {
+      return c && /^[A-Za-z][A-Za-z0-9_]*$/.test(c.id || '') && c.label && aColonne('Projets', c.id);
+    });
+  }
+
+  function valeurPerso(c, p) {
+    var v = p[c.id];
+    if (v === null || v === undefined || v === '') return '';
+    return c.type === 'date' ? dateTexte(v) : String(v);
+  }
+
+  function identifiantChamp(libelle) {
+    var id = sansAccent(libelle).replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '');
+    if (!id) return '';
+    id = id.charAt(0).toUpperCase() + id.slice(1);
+    return /^[0-9]/.test(id) ? 'C_' + id : id;
+  }
+
+  function colonneProjetsPrise(id) {
+    if (DEMO) return Object.keys((data.Projets || [])[0] || {}).indexOf(id) !== -1;
+    return aColonne('Projets', id);
+  }
+
+  var nouveauChamp = { label: '', type: 'court', choix: '', aide: '', requis: false, carte: false };
+
+  function sectionChamps(b) {
+    b.champsMasques = b.champsMasques || [];
+    b.champsPerso = b.champsPerso || [];
+    var h = '<section><h2 class="fr-h5">Champs de la fiche projet</h2>' +
+      '<p class="fr-text--sm">Décochez un champ d\'origine pour le masquer partout (formulaire, fiche, carte). Ses données restent dans Grist : rien n\'est supprimé.</p>' +
+      '<fieldset class="fr-fieldset" aria-labelledby="rg-masques-leg"><legend class="fr-fieldset__legend fr-sr-only" id="rg-masques-leg">Champs d\'origine affichés</legend>';
+    CHAMPS_MASQUABLES.forEach(function (c) {
+      h += '<div class="fr-fieldset__element fr-fieldset__element--inline"><div class="fr-checkbox-group fr-checkbox-group--sm"><input type="checkbox" id="rg-masque-' + c[0] + '" data-champ-masque="' + c[0] + '"' +
+        (b.champsMasques.indexOf(c[0]) === -1 ? ' checked' : '') + '><label class="fr-label" for="rg-masque-' + c[0] + '">' + esc(c[1]) + '</label></div></div>';
+    });
+    h += '</fieldset><h3 class="fr-h6">Vos champs</h3>';
+    if (!b.champsPerso.length) h += '<p class="sp-vide">Aucun champ personnalisé.</p>';
+    b.champsPerso.forEach(function (c) {
+      var type = TYPES_CHAMP.filter(function (t) { return t[0] === c.type; })[0];
+      h += '<div class="sp-champ-perso"><p class="fr-mb-1v"><strong>' + esc(c.label) + '</strong> · ' + esc(type ? type[1] : c.type) +
+        ' · colonne <code>' + esc(c.id) + '</code>' + (aColonne('Projets', c.id) && !DEMO ? '' : ' <span class="fr-badge fr-badge--sm fr-badge--info">Créée à l\'enregistrement</span>') + '</p>' +
+        '<div class="fr-checkbox-group fr-checkbox-group--sm"><input type="checkbox" id="rg-req-' + c.id + '" data-perso="' + esc(c.id) + '" data-drapeau="requis"' + (c.requis ? ' checked' : '') + '><label class="fr-label" for="rg-req-' + c.id + '">Obligatoire</label></div>' +
+        '<div class="fr-checkbox-group fr-checkbox-group--sm"><input type="checkbox" id="rg-car-' + c.id + '" data-perso="' + esc(c.id) + '" data-drapeau="carte"' + (c.carte ? ' checked' : '') + '><label class="fr-label" for="rg-car-' + c.id + '">Afficher sur la carte</label></div>' +
+        '<button type="button" class="fr-btn fr-btn--sm fr-btn--tertiary" data-action="retirer-champ-perso" data-id="' + esc(c.id) + '">Retirer des réglages</button></div>';
+    });
+    var n = nouveauChamp;
+    h += '<h3 class="fr-h6 fr-mt-2w">Ajouter un champ</h3><div class="sp-champ-perso">' +
+      '<div class="fr-input-group"><label class="fr-label" for="nc-label">Libellé</label><input class="fr-input" id="nc-label" data-nouveau="label" value="' + esc(n.label) + '"></div>' +
+      '<div class="fr-select-group"><label class="fr-label" for="nc-type">Type</label><select class="fr-select" id="nc-type" data-nouveau="type">' +
+      TYPES_CHAMP.map(function (t) { return '<option value="' + t[0] + '"' + (n.type === t[0] ? ' selected' : '') + '>' + esc(t[1]) + '</option>'; }).join('') + '</select></div>' +
+      '<div class="fr-input-group"><label class="fr-label" for="nc-choix">Valeurs possibles<span class="fr-hint-text">Pour le type « Choix » : une valeur par ligne.</span></label><textarea class="fr-input" rows="3" id="nc-choix" data-nouveau="choix">' + esc(n.choix) + '</textarea></div>' +
+      '<div class="fr-input-group"><label class="fr-label" for="nc-aide">Aide sous le champ (facultatif)</label><input class="fr-input" id="nc-aide" data-nouveau="aide" value="' + esc(n.aide) + '"></div>' +
+      '<div class="fr-checkbox-group fr-checkbox-group--sm"><input type="checkbox" id="nc-requis" data-nouveau="requis"' + (n.requis ? ' checked' : '') + '><label class="fr-label" for="nc-requis">Obligatoire à la saisie</label></div>' +
+      '<div class="fr-checkbox-group fr-checkbox-group--sm"><input type="checkbox" id="nc-carte" data-nouveau="carte"' + (n.carte ? ' checked' : '') + '><label class="fr-label" for="nc-carte">Afficher sur la carte</label></div>' +
+      '<button type="button" class="fr-btn fr-btn--sm fr-mt-1w" data-action="ajouter-champ-perso">Ajouter le champ</button></div></section>';
+    return h;
+  }
+
+  function ajouterChampPerso() {
+    var n = nouveauChamp, b = brouillonReglages;
+    var label = String(n.label || '').trim();
+    function refus(t) { if (configLab) configLab.message('error', t); }
+    if (!label) { refus('Indiquez le libellé du champ.'); return; }
+    var id = identifiantChamp(label);
+    if (!id) { refus('Le libellé doit contenir au moins une lettre ou un chiffre.'); return; }
+    if (colonneProjetsPrise(id) || b.champsPerso.some(function (c) { return c.id === id; })) {
+      refus('Le nom de colonne « ' + id + ' » est déjà pris : choisissez un autre libellé.'); return;
+    }
+    var choix = String(n.choix || '').split('\n').map(function (x) { return x.trim(); }).filter(Boolean);
+    if (n.type === 'choix' && !choix.length) { refus('Indiquez au moins une valeur possible pour un champ « Choix ».'); return; }
+    b.champsPerso.push({ id: id, label: label, type: n.type, aide: String(n.aide || '').trim(), requis: !!n.requis, carte: !!n.carte, choix: n.type === 'choix' ? choix : [] });
+    nouveauChamp = { label: '', type: 'court', choix: '', aide: '', requis: false, carte: false };
+    if (configLab) { configLab.rafraichir('reglages'); configLab.modifie(true); configLab.message('info', 'Champ « ' + label + ' » ajouté. Enregistrez les réglages pour créer la colonne dans Grist.'); }
+  }
+
   // --- Réglages (propriétaires du document) ---------------------------------
 
   var brouillonReglages = null;
@@ -754,7 +864,7 @@
       });
       h += '</div>';
     });
-    h += '</section>' + '<section><h2 class="fr-h5">Autres réglages</h2>' +
+    h += '</section>' + sectionChamps(b) + '<section><h2 class="fr-h5">Autres réglages</h2>' +
       '<div class="fr-input-group"><label class="fr-label" for="rg-domaine">Domaine des adresses électroniques<span class="fr-hint-text">Sert à suggérer l\'adresse d\'un collègue (prénom.nom@domaine). Exemple : mon-administration.fr. Vide : pas de suggestion.</span></label>' +
       '<input class="fr-input" id="rg-domaine" data-reglage="domaineCourriel" value="' + esc(b.domaineCourriel || '') + '"></div>' +
       '<div class="fr-input-group"><label class="fr-label" for="rg-jours">Alerte « projet à relancer » après (jours sans activité)</label>' +
@@ -803,10 +913,7 @@
         { id: 'reglages', libelle: 'Réglages', rendre: function (zone) { zone.innerHTML = reglagesPropres(); } },
         { id: 'roles', libelle: 'Rôles', rendre: function (zone) { zone.innerHTML = reglagesRoles(); } }
       ],
-      apercu: function (zone) {
-        zone.innerHTML = '<h1 class="fr-h3">Banque des projets</h1><p class="fr-text--sm">Tous les projets, par phase</p>' +
-          '<div class="fr-card fr-card--sm fr-mb-2w"><div class="fr-card__body"><div class="fr-card__content"><h2 class="fr-card__title">Exemple de projet</h2><p class="fr-card__desc">L\'en-tête et le pied de page ci-dessus encadrent tous les écrans de l\'outil.</p></div></div></div>';
-      },
+      apercu: function (zone) { zone.innerHTML = apercuReel(); },
       publication: { mode: 'connecte', adresseWidget: location.href.split('#')[0].split('?')[0], texte: 'Les projets restreints ne sont visibles que des personnes désignées et du rôle Administration (onglet Rôles).',
         publier: {
           lienDoc: (brouillonReglages.publication && brouillonReglages.publication.lienDoc) || '',
@@ -819,9 +926,28 @@
     });
   }
 
+  // Aperçu : la vraie page (banque et fiche d'un projet) avec les réglages en cours, non interactive.
+  function apercuReel() {
+    var sauve = reglages;
+    reglages = brouillonReglages || reglages;
+    try {
+      var projets = projetsFiltres();
+      var html = '<div inert>' + vueBanque();
+      if (projets.length) html += '<hr><h2 class="fr-h4">Fiche d\'un projet</h2><h3 class="fr-h5">' + esc(projets[0].Titre || '') + '</h3>' + ongletPresentation(projets[0]);
+      return html + '</div>';
+    } catch (e) {
+      return '<p>Aperçu indisponible : ' + esc((e && e.message) || e) + '</p>';
+    } finally { reglages = sauve; }
+  }
+
   function enregistrerReglages() {
     var b = brouillonReglages;
-    if (DEMO) { if (configLab) configLab.message('info', 'Mode démonstration : rien n\'est enregistré. Dans Grist, les réglages sont enregistrés dans le document.'); return; }
+    if (DEMO) {
+      appliquerReglages(JSON.parse(JSON.stringify(b)));
+      rendre();
+      if (configLab) { configLab.enregistre(); configLab.message('info', 'Mode démonstration : appliqué à l\'écran, rien n\'est enregistré. Dans Grist, les réglages sont enregistrés dans le document.'); }
+      return;
+    }
     LISTES_REGLABLES.forEach(function (l) {
       var champ = document.getElementById('rg-' + l[0]);
       if (!champ) return;
@@ -833,6 +959,15 @@
     var actions = [];
     if (!meta.colConfig) actions.push(['AddColumn', 'Projets', NOM_COLONNE_CONFIG, { type: 'Text', label: NOM_COLONNE_CONFIG }]);
     actions.push(['ModifyColumn', 'Projets', NOM_COLONNE_CONFIG, { description: JSON.stringify(b) }]);
+    // Champs personnalisés : une colonne Grist par champ, créée si elle manque. Jamais supprimée.
+    (b.champsPerso || []).forEach(function (c) {
+      if (aColonne('Projets', c.id)) return;
+      var type = TYPES_CHAMP.filter(function (t) { return t[0] === c.type; })[0];
+      var def = { type: type ? type[2] : 'Text', isFormula: false, formula: '', label: c.label };
+      if (c.type === 'choix') def.widgetOptions = JSON.stringify({ choices: c.choix || [] });
+      if (c.type === 'long') def.widgetOptions = JSON.stringify({ widget: 'TextBox', wrap: true });
+      actions.push(['AddColumn', 'Projets', c.id, def]);
+    });
     // Listes de choix des colonnes Grist alignées sur les réglages.
     LISTES_REGLABLES.forEach(function (l) {
       if (!b.listes[l[0]]) return;
@@ -853,6 +988,8 @@
     }
     return grist.docApi.applyUserActions(actions).then(function () {
       meta.colConfig = true;
+      return charger();
+    }).then(function () {
       appliquerReglages(b);
       if (configLab) { configLab.enregistre(); configLab.message('success', 'Réglages enregistrés.'); }
       rendre();
@@ -953,13 +1090,14 @@
       badges += '<li>' + badge('Sans activité depuis ' + p.Jours_sans_activite + ' j', 'error') + '</li>';
     }
     var details = [];
-    if (p.Echeance) details.push('Échéance : ' + dateTexte(p.Echeance));
+    if (p.Echeance && !masque('Echeance')) details.push('Échéance : ' + dateTexte(p.Echeance));
+    champsPerso().forEach(function (c) { var v = c.carte ? valeurPerso(c, p) : ''; if (v) details.push(c.label + ' : ' + v); });
     if (p.Avancement !== null && p.Avancement !== undefined) details.push(p.Avancement + ' % des actions faites');
 
     return '<div class="fr-card fr-enlarge-link">' +
       '<div class="fr-card__body"><div class="fr-card__content">' +
       '<h2 class="fr-card__title"><a href="#/projet/' + p.id + '">' + esc(p.Titre || 'Projet sans titre') + '</a></h2>' +
-      (p.Resume ? '<p class="fr-card__desc">' + esc(resumeCourt(p.Resume)) + '</p>' : '') +
+      (p.Resume && !masque('Resume') ? '<p class="fr-card__desc">' + esc(resumeCourt(p.Resume)) + '</p>' : '') +
       '<div class="fr-card__start"><ul class="sp-badges">' + badges + '</ul>' +
       '<p class="fr-card__detail fr-icon-building-line">' + esc(libelleStructure(p.Structure_porteuse) || 'Structure non renseignée') + '</p></div>' +
       '<div class="fr-card__end">' +
@@ -1012,14 +1150,14 @@
 
   function ongletPresentation(p) {
     var html = '';
-    if (p.Resume) html += '<div class="sp-section"><h3>En bref</h3><p class="sp-texte">' + esc(p.Resume) + '</p></div>';
+    if (p.Resume && !masque('Resume')) html += '<div class="sp-section"><h3>En bref</h3><p class="sp-texte">' + esc(p.Resume) + '</p></div>';
 
-    if (p.Mission || p.Commanditaire) {
+    if ((p.Mission || p.Commanditaire) && !(masque('Mission') && masque('Commanditaire'))) {
       html += '<div class="fr-callout sp-section"><h3 class="fr-callout__title">Mission confiée' +
         (nomPersonne(p.Commanditaire) ? ' par ' + esc(nomPersonne(p.Commanditaire)) : '') + '</h3>' +
         '<p class="fr-callout__text sp-texte">' + esc(p.Mission || 'Consigne non renseignée.') + '</p></div>';
     }
-    if (p.Objectifs) html += '<div class="sp-section"><h3>Objectifs attendus</h3><p class="sp-texte">' + esc(p.Objectifs) + '</p></div>';
+    if (p.Objectifs && !masque('Objectifs')) html += '<div class="sp-section"><h3>Objectifs attendus</h3><p class="sp-texte">' + esc(p.Objectifs) + '</p></div>';
 
     var themes = liste(p.Thematiques).map(function (t) { return '<li><p class="fr-tag fr-tag--sm">' + esc(t) + '</p></li>'; }).join('');
     var associees = liste(p.Structures_associees).map(libelleStructure).filter(Boolean).join(', ');
@@ -1027,13 +1165,14 @@
     html += '<dl class="sp-infos">' +
       info('Porteurs', esc(nomsPersonnes(p.Porteurs))) +
       info('Équipe projet', esc(nomsPersonnes(p.Equipe))) +
-      info('Structures associées', esc(associees)) +
-      info('Origine', esc(p.Origine)) +
-      info('Début', esc(dateTexte(p.Date_debut))) +
-      info('Échéance prévisionnelle', esc(dateTexte(p.Echeance))) +
+      (masque('Structures_associees') ? '' : info('Structures associées', esc(associees))) +
+      (masque('Origine') ? '' : info('Origine', esc(p.Origine))) +
+      (masque('Date_debut') ? '' : info('Début', esc(dateTexte(p.Date_debut)))) +
+      (masque('Echeance') ? '' : info('Échéance prévisionnelle', esc(dateTexte(p.Echeance)))) +
+      champsPerso().map(function (c) { return info(c.label, esc(valeurPerso(c, p))); }).join('') +
       info('Avancement', p.Avancement !== null && p.Avancement !== undefined ? esc(p.Avancement + ' % des actions faites') : '') +
       info('Dernière activité', esc(dateHeureTexte(p.Derniere_activite))) +
-      info('Thématiques', themes ? '<ul class="fr-tags-group">' + themes + '</ul>' : '') +
+      (masque('Thematiques') ? '' : info('Thématiques', themes ? '<ul class="fr-tags-group">' + themes + '</ul>' : '')) +
       '</dl>' + blocPasMoi(p);
     return html;
   }
@@ -2119,6 +2258,10 @@
       Phase: 'Idée', Etat: 'En cours', Origine: '', Commanditaire: '', Mission: '', Objectifs: '',
       Thematiques: [], Date_debut: '', Echeance: '', Visibilite: 'Ouvert'
     };
+    champsPerso().forEach(function (c) {
+      var v = p ? p[c.id] : '';
+      etat.form[c.id] = v === null || v === undefined ? '' : (c.type === 'date' ? dateVersSaisie(v) : v);
+    });
   }
 
   function champTexte(id, champ, libelle, aide, requis, multi) {
@@ -2203,6 +2346,20 @@
     }, REFUS_PERSONNE);
   }
 
+  function champPersoForm(c, f) {
+    var id = 'pp-' + c.id, v = f[c.id] === undefined || f[c.id] === null ? '' : f[c.id];
+    var attr = 'data-champ-form="' + esc(c.id) + '"' + (c.requis ? ' required' : '');
+    var lab = '<label class="fr-label" for="' + id + '">' + esc(c.label) + (c.requis ? ' <span aria-hidden="true">*</span>' : '') +
+      (c.aide ? '<span class="fr-hint-text">' + esc(c.aide) + '</span>' : '') + '</label>';
+    if (c.type === 'long') return '<div class="fr-input-group">' + lab + '<textarea class="fr-input" id="' + id + '" rows="4" ' + attr + '>' + esc(v) + '</textarea></div>';
+    if (c.type === 'choix') {
+      return '<div class="fr-select-group">' + lab + '<select class="fr-select" id="' + id + '" ' + attr + '><option value="">Choisir</option>' +
+        (c.choix || []).map(function (o) { return '<option' + (o === v ? ' selected' : '') + '>' + esc(o) + '</option>'; }).join('') + '</select></div>';
+    }
+    var type = c.type === 'date' ? 'date' : c.type === 'nombre' ? 'number" step="any' : 'text';
+    return '<div class="fr-input-group">' + lab + '<input class="fr-input" type="' + type + '" id="' + id + '" ' + attr + ' value="' + esc(v) + '"></div>';
+  }
+
   function vueFormulaire(id) {
     if (id && !idx.Projets[id]) {
       return '<p><a class="fr-link fr-icon-arrow-left-line fr-link--icon-left" href="#/">Banque des projets</a></p>' +
@@ -2213,6 +2370,8 @@
     var personnes = personnesTriees().map(function (x) { return { v: x.id, t: libellePersonne(x) }; });
     var structures = structuresTriees().map(function (s) { return { v: s.id, t: s.Chemin }; });
     var retour = id ? '#/projet/' + id : '#/';
+    function si(c, h) { return masque(c) ? '' : h; }
+    var perso = champsPerso();
 
     var html = '<p><a class="fr-link fr-icon-arrow-left-line fr-link--icon-left" href="' + retour + '">' +
       (id ? 'Retour à la fiche' : 'Banque des projets') + '</a></p>' + blocAlerte() + blocProfilManquant() +
@@ -2223,9 +2382,9 @@
 
       '<fieldset class="fr-fieldset"><legend class="fr-fieldset__legend fr-h5">Le projet</legend>' +
       '<div class="fr-fieldset__element">' + champTexte('p-titre', 'Titre', 'Titre du projet', '', true) + '</div>' +
-      '<div class="fr-fieldset__element">' + champTexte('p-resume', 'Resume', 'En bref', 'Deux ou trois phrases pour comprendre le projet.', false, true) + '</div>' +
+      si('Resume', '<div class="fr-fieldset__element">' + champTexte('p-resume', 'Resume', 'En bref', 'Deux ou trois phrases pour comprendre le projet.', false, true) + '</div>') +
       '<div class="fr-fieldset__element">' + champSelect('p-structure', 'Structure porteuse *', f.Structure_porteuse, structures, 'data-champ-form="Structure_porteuse" required', 'Choisir une structure') + '</div>' +
-      '<div class="fr-fieldset__element">' + champSelect('p-origine', 'Origine du projet', f.Origine, ORIGINES, 'data-champ-form="Origine"', 'Choisir') + '</div>' +
+      si('Origine', '<div class="fr-fieldset__element">' + champSelect('p-origine', 'Origine du projet', f.Origine, ORIGINES, 'data-champ-form="Origine"', 'Choisir') + '</div>') +
       '</fieldset>' +
 
       '<fieldset class="fr-fieldset"><legend class="fr-fieldset__legend fr-h5">Les personnes</legend>' +
@@ -2233,31 +2392,34 @@
         'Les porteurs peuvent modifier toute la fiche.', personnes, nomPuce) + '</div>' +
       '<div class="fr-fieldset__element">' + selecteurMultiple('p-equipe', 'Equipe', 'Équipe projet',
         "L'équipe peut compléter le plan d'action, le journal et les documents.", personnes, nomPuce) + '</div>' +
-      '<div class="fr-fieldset__element">' + selecteurMultiple('p-associees', 'Structures_associees', 'Structures associées', '', structures,
-        function (v) { return cheminDe(v); }) + '</div>' +
+      si('Structures_associees', '<div class="fr-fieldset__element">' + selecteurMultiple('p-associees', 'Structures_associees', 'Structures associées', '', structures,
+        function (v) { return cheminDe(v); }) + '</div>') +
       '</fieldset>' +
 
-      '<fieldset class="fr-fieldset"><legend class="fr-fieldset__legend fr-h5">La mission</legend>' +
-      '<div class="fr-fieldset__element">' + champSelect('p-commanditaire', 'Mission confiée par', f.Commanditaire, personnes, 'data-champ-form="Commanditaire"', 'Personne (initiative propre)') + '</div>' +
-      '<div class="fr-fieldset__element">' + champTexte('p-mission', 'Mission', 'Mission confiée', 'La consigne ou la lettre de mission, telle qu\'elle a été donnée.', false, true) + '</div>' +
-      '<div class="fr-fieldset__element">' + champTexte('p-objectifs', 'Objectifs', 'Objectifs attendus', '', false, true) + '</div>' +
-      '</fieldset>' +
+      (['Commanditaire', 'Mission', 'Objectifs'].every(masque) ? '' : '<fieldset class="fr-fieldset"><legend class="fr-fieldset__legend fr-h5">La mission</legend>' +
+      si('Commanditaire', '<div class="fr-fieldset__element">' + champSelect('p-commanditaire', 'Mission confiée par', f.Commanditaire, personnes, 'data-champ-form="Commanditaire"', 'Personne (initiative propre)') + '</div>') +
+      si('Mission', '<div class="fr-fieldset__element">' + champTexte('p-mission', 'Mission', 'Mission confiée', 'La consigne ou la lettre de mission, telle qu\'elle a été donnée.', false, true) + '</div>') +
+      si('Objectifs', '<div class="fr-fieldset__element">' + champTexte('p-objectifs', 'Objectifs', 'Objectifs attendus', '', false, true) + '</div>') +
+      '</fieldset>') +
+
+      (perso.length ? '<fieldset class="fr-fieldset"><legend class="fr-fieldset__legend fr-h5">Informations complémentaires</legend>' +
+        perso.map(function (c) { return '<div class="fr-fieldset__element">' + champPersoForm(c, f) + '</div>'; }).join('') + '</fieldset>' : '') +
 
       '<fieldset class="fr-fieldset"><legend class="fr-fieldset__legend fr-h5">Avancement et calendrier</legend>' +
       '<div class="fr-fieldset__element fr-fieldset__element--inline">' + champSelect('p-phase', 'Phase', f.Phase, PHASES, 'data-champ-form="Phase"', false) + '</div>' +
       '<div class="fr-fieldset__element fr-fieldset__element--inline">' + champSelect('p-etat', 'État', f.Etat, ETATS, 'data-champ-form="Etat"', false) + '</div>' +
-      '<div class="fr-fieldset__element fr-fieldset__element--inline"><div class="fr-input-group"><label class="fr-label" for="p-debut">Début</label>' +
-      '<input class="fr-input" type="date" id="p-debut" data-champ-form="Date_debut" value="' + esc(f.Date_debut) + '"></div></div>' +
-      '<div class="fr-fieldset__element fr-fieldset__element--inline"><div class="fr-input-group"><label class="fr-label" for="p-echeance">Échéance prévisionnelle</label>' +
-      '<input class="fr-input" type="date" id="p-echeance" data-champ-form="Echeance" value="' + esc(f.Echeance) + '"></div></div>' +
+      si('Date_debut', '<div class="fr-fieldset__element fr-fieldset__element--inline"><div class="fr-input-group"><label class="fr-label" for="p-debut">Début</label>' +
+      '<input class="fr-input" type="date" id="p-debut" data-champ-form="Date_debut" value="' + esc(f.Date_debut) + '"></div></div>') +
+      si('Echeance', '<div class="fr-fieldset__element fr-fieldset__element--inline"><div class="fr-input-group"><label class="fr-label" for="p-echeance">Échéance prévisionnelle</label>' +
+      '<input class="fr-input" type="date" id="p-echeance" data-champ-form="Echeance" value="' + esc(f.Echeance) + '"></div></div>') +
       '</fieldset>' +
 
-      '<fieldset class="fr-fieldset" id="p-themes"><legend class="fr-fieldset__legend fr-h5">Thématiques</legend>' +
+      si('Thematiques', '<fieldset class="fr-fieldset" id="p-themes"><legend class="fr-fieldset__legend fr-h5">Thématiques</legend>' +
       THEMATIQUES.map(function (t, i) {
         return '<div class="fr-fieldset__element fr-fieldset__element--inline"><div class="fr-checkbox-group fr-checkbox-group--sm">' +
           '<input type="checkbox" id="t-' + i + '" data-theme="' + esc(t) + '"' + (f.Thematiques.indexOf(t) !== -1 ? ' checked' : '') + '>' +
           '<label class="fr-label" for="t-' + i + '">' + esc(t) + '</label></div></div>';
-      }).join('') + '</fieldset>' +
+      }).join('') + '</fieldset>') +
 
       '<fieldset class="fr-fieldset"><legend class="fr-fieldset__legend fr-h5">Visibilité</legend>' +
       ['Ouvert', 'Restreint'].map(function (v) {
@@ -2279,6 +2441,7 @@
     if (!String(f.Titre).trim()) manques.push('le titre');
     if (!num(f.Structure_porteuse)) manques.push('la structure porteuse');
     if (!f.Porteurs.length) manques.push('au moins un porteur');
+    champsPerso().forEach(function (c) { if (c.requis && !String(f[c.id] === undefined ? '' : f[c.id]).trim()) manques.push('« ' + c.label + ' »'); });
     if (manques.length) {
       etat.alerte = { type: 'error', texte: 'Il manque ' + manques.join(', ') + '.' };
       rendre();
@@ -2292,6 +2455,14 @@
       Mission: f.Mission, Objectifs: f.Objectifs, Thematiques: versListe(f.Thematiques),
       Date_debut: saisieVersDate(f.Date_debut), Echeance: saisieVersDate(f.Echeance), Visibilite: f.Visibilite
     };
+    // Un champ masqué n'est pas envoyé ; un champ perso est converti selon son type.
+    CHAMPS_MASQUABLES.forEach(function (c) { if (masque(c[0])) delete champs[c[0]]; });
+    champsPerso().forEach(function (c) {
+      var v = f[c.id];
+      champs[c.id] = c.type === 'date' ? saisieVersDate(v) : c.type === 'nombre' ? (String(v).trim() === '' ? null : Number(v)) : (v === undefined ? '' : String(v));
+    });
+    // Une colonne supprimée à la main dans Grist ne doit pas bloquer l'enregistrement.
+    seulementColonnes('Projets', champs);
     var action = id ? ['UpdateRecord', 'Projets', id, champs] : ['AddRecord', 'Projets', null, champs];
     executer([action], id ? 'Fiche enregistrée.' : 'Projet déclaré.', function (res) {
       var nouvelId = id || (res && res.retValues && res.retValues[0]);
@@ -2313,6 +2484,13 @@
     var el = e.target.closest('[data-action]');
     if (!el) return;
     var a = el.getAttribute('data-action');
+    if (a === 'ajouter-champ-perso') { ajouterChampPerso(); return; }
+    if (a === 'retirer-champ-perso' && brouillonReglages) {
+      var rid = el.getAttribute('data-id');
+      brouillonReglages.champsPerso = (brouillonReglages.champsPerso || []).filter(function (c) { return c.id !== rid; });
+      if (configLab) { configLab.rafraichir('reglages'); configLab.modifie(true); configLab.message('info', 'Champ retiré des réglages. Sa colonne et ses données restent dans Grist.'); }
+      return;
+    }
     if (a === 'enregistrer-reglages') { enregistrerReglages(); return; }
     if (a === 'annuler-reglages') { brouillonReglages = null; etat.alerte = null; rendre(); return; }
     if (a === 'nouveau') { etat.form = null; etat.formCle = null; etat.alerte = null; aller('#/nouveau'); }
@@ -2407,9 +2585,29 @@
       brouillonReglages[k] = t.type === 'number' ? Number(t.value) : t.value;
     }
   });
+  ecoute.addEventListener('input', function (e) {
+    var t = e.target;
+    if (t.hasAttribute('data-nouveau') && t.type !== 'checkbox' && t.tagName !== 'SELECT') nouveauChamp[t.getAttribute('data-nouveau')] = t.value;
+  });
   ecoute.addEventListener('change', function (e) {
     var t = e.target;
-    if (!brouillonReglages || !t.hasAttribute('data-reglage-couleur')) return;
+    if (!brouillonReglages) return;
+    if (t.hasAttribute('data-nouveau')) { nouveauChamp[t.getAttribute('data-nouveau')] = t.type === 'checkbox' ? t.checked : t.value; return; }
+    if (t.hasAttribute('data-champ-masque')) {
+      var cm = t.getAttribute('data-champ-masque');
+      var l = (brouillonReglages.champsMasques || []).filter(function (x) { return x !== cm; });
+      if (!t.checked) l.push(cm);
+      brouillonReglages.champsMasques = l;
+      if (configLab) configLab.modifie(true);
+      return;
+    }
+    if (t.hasAttribute('data-perso')) {
+      var cp = (brouillonReglages.champsPerso || []).filter(function (x) { return x.id === t.getAttribute('data-perso'); })[0];
+      if (cp) cp[t.getAttribute('data-drapeau')] = t.checked;
+      if (configLab) configLab.modifie(true);
+      return;
+    }
+    if (!t.hasAttribute('data-reglage-couleur')) return;
     var g = t.getAttribute('data-reglage-couleur');
     brouillonReglages.couleurs[g] = brouillonReglages.couleurs[g] || {};
     brouillonReglages.couleurs[g][t.getAttribute('data-valeur')] = t.value;
@@ -2642,8 +2840,8 @@
         charger().then(function () { return aTable('Projets') && !PUBLIC ? assurerCompte() : null; }).then(function () {
           appliquerTheme();
           if (!aTable('Projets')) { rendre(); return; }
-          // Première visite sans profil : on propose de le créer.
-          if (!etat.accueilVu && route().vue === 'banque' && profilManquant()) { etat.accueilVu = true; location.hash = '#/profil'; return; }
+          // Première visite sans profil : il est créé à partir de l'adresse du compte (prénom.nom@…).
+          if (!etat.accueilVu && profilManquant()) { etat.accueilVu = true; creerProfilAuto(); return; }
           etat.accueilVu = true;
           rendre();
         }).catch(erreurChargement);
