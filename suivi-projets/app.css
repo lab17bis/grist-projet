@@ -330,3 +330,7 @@ body {
 
 /* Page publique : lecture seule. */
 .gp-public [data-action="nouveau"], .gp-public a[href$="/modifier"] { display: none !important; }
+
+/* Réglages : champs personnalisés */
+.sp-champ-perso { margin: 0 0 1rem; padding: 1rem; border: 1px solid var(--border-default-grey, #ddd); }
+.sp-champ-perso .fr-checkbox-group { margin-bottom: .25rem; }
