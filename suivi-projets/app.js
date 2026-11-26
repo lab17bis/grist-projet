@@ -1076,7 +1076,7 @@
     var html = navigation('banque') + blocAlerte();
     html += '<div class="sp-titre-ligne"><div><h1 class="fr-h3">Banque des projets</h1>' +
       '<p class="fr-mb-0">' + projets.length + ' projet' + (projets.length > 1 ? 's' : '') + ' affiché' + (projets.length > 1 ? 's' : '') + '</p></div>' +
-      '<button class="fr-btn fr-icon-add-line fr-btn--icon-left" data-action="nouveau">Déclarer un projet</button></div>';
+      (PUBLIC ? '' : '<button class="fr-btn fr-icon-add-line fr-btn--icon-left" data-action="nouveau">Déclarer un projet</button>') + '</div>';
 
     html += '<div class="sp-filtres">' +
       '<div class="fr-input-group"><label class="fr-label" for="f-q">Rechercher</label>' +
@@ -1096,7 +1096,7 @@
       html += data.Projets.length
         ? '<p class="sp-vide">Aucun projet ne correspond à ces critères.</p>'
         : '<div class="fr-callout"><h2 class="fr-callout__title fr-h5">Aucun projet déclaré pour l\'instant</h2>' +
-          '<p class="fr-callout__text">La banque se remplit au fil des déclarations. Commencez par « Déclarer un projet ».</p></div>';
+          '<p class="fr-callout__text">' + (PUBLIC ? 'Aucun projet n\'est publié pour l\'instant.' : 'La banque se remplit au fil des déclarations. Commencez par « Déclarer un projet ».') + '</p></div>';
       return html;
     }
 
@@ -2118,7 +2118,7 @@
     return fetch('schema.json').then(function (r) { return r.json(); }).then(function (j) { schemaCache = j; return j; });
   }
   function miseAJourNecessaire() {
-    return !DEMO && meta.lu && aTable('Actions') && aTable('Personnes') && (!aColonne('Actions', 'Parent') || !aColonne('Personnes', 'Role') || !aColonne('Projets', 'Admins'));
+    return !DEMO && !PUBLIC && meta.lu && aTable('Actions') && aTable('Personnes') && (!aColonne('Actions', 'Parent') || !aColonne('Personnes', 'Role') || !aColonne('Projets', 'Admins'));
   }
   function bandeauMiseAJour() {
     if (!miseAJourNecessaire()) return '';

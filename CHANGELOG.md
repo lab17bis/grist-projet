@@ -9,6 +9,7 @@ Les adresses `/v1/` ne changent pas : chaque version ajoute ou corrige, sans ret
 - Désactivé par défaut : une fiche sans réglage garde exactement sa présentation d'origine.
 
 ### Corrigé
+- Page publique : le bandeau « Nouvelle version… Mettre à jour le document » et le bouton « Déclarer un projet » ne s'affichent plus aux visiteurs.
 - README : la page publique de la banque des projets est désormais indiquée (elle existe depuis le 24/11) ; la mention « pas de page publique » était périmée.
 
 ## 2026-11-25 (mention de conception)
