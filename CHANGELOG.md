@@ -4,6 +4,9 @@ Les adresses `/v1/` ne changent pas : chaque version ajoute ou corrige, sans ret
 
 ## 2026-11-26 (carte, filtres, colonnes existantes, rendez-vous)
 
+### Corrigé
+- « Utiliser une colonne existante » ne proposait pas une colonne tout juste créée et encore vide (Grist la compte comme une colonne de formule sans formule). Elle est maintenant proposée ; elle devient une colonne de données à la première saisie.
+
 ### Ajouté
 - Réglages > « Utiliser une colonne existante » : les colonnes de données de la table `Projets` ajoutées dans Grist (texte, choix, date, nombre) se reprennent comme champ de la fiche, sans création de colonne. Avant, une colonne qui existait déjà était refusée.
 - Réglages > « Carte de projet » : choix des champs d'origine affichés sur les cartes de la banque (thématiques, origine, mission confiée par, mission, objectifs, structures associées, début).

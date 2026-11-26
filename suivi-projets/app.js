@@ -799,8 +799,9 @@
       });
       return res;
     }
+    // Une colonne vide créée dans Grist est une « colonne de formule sans formule » : elle devient colonne de données dès la première saisie.
     var t = (meta.tables || []).filter(function (x) { return x.tableId === 'Projets'; })[0];
-    (meta.colonnes || []).filter(function (c) { return t && c.parentId === t.id && !c.isFormula && libre(c.colId); }).forEach(function (c) {
+    (meta.colonnes || []).filter(function (c) { return t && c.parentId === t.id && (!c.isFormula || !String(c.formula || '').trim()) && libre(c.colId); }).forEach(function (c) {
       var o = {};
       try { o = JSON.parse(c.widgetOptions || '{}'); } catch (e) { o = {}; }
       var type = c.type === 'Text' ? (o.wrap ? 'long' : 'court') : c.type === 'Choice' ? 'choix' : c.type === 'Date' ? 'date' : (c.type === 'Numeric' || c.type === 'Int') ? 'nombre' : '';

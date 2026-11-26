@@ -70,7 +70,8 @@ def cols_projets():
     c = ["Titre", "Resume", "Structure_porteuse", "Phase", "Etat", "Origine", "Mission", "Objectifs", "Thematiques", "Config_suivi", "Avancement"]
     l = [{"colId": x, "type": "Text"} for x in c]
     l.append({"colId": "objectifs_livrables", "type": "Text", "label": "Objectifs livrables"})
-    l.append({"colId": "Budget_calcule", "type": "Numeric", "isFormula": True})
+    l.append({"colId": "Budget_calcule", "type": "Numeric", "isFormula": True, "formula": "$Mission_id * 2"})
+    l.append({"colId": "Colonne_vide", "type": "Text", "isFormula": True, "formula": ""})
     l.append({"colId": "Pilote", "type": "Ref:Personnes"})
     return l
 
@@ -106,7 +107,7 @@ with sync_playwright() as p:
     fr.locator("label.fr-label", has_text="Réglages").first.click()
     fr.locator("[data-action=activer-rdv]").wait_for()
     ok("A : colonne existante proposée, colonne calculée et colonne native exclues",
-       "objectifs_livrables" in fr.locator("#nc-existante").inner_text() and "Budget_calcule" not in fr.locator("#nc-existante").inner_text()
+       "objectifs_livrables" in fr.locator("#nc-existante").inner_text() and "Colonne_vide" in fr.locator("#nc-existante").inner_text() and "Budget_calcule" not in fr.locator("#nc-existante").inner_text()
        and "Pilote" not in fr.locator("#nc-existante").inner_text() and "Mission" not in fr.locator("#nc-existante").inner_text())
     fr.locator("[data-action=utiliser-colonne]").click()
     fr.locator("code:has-text('objectifs_livrables')").wait_for()
