@@ -2334,11 +2334,17 @@
   function bandeauComplement() {
     var m = manquesDocument();
     if (!m) return '';
-    var liste = m.tables.map(function (t) { return '<code>' + esc(t) + '</code> (table)'; })
-      .concat(m.cols.slice(0, 25).map(function (x) { return '<code>' + esc(x.table + '.' + x.c.id) + '</code>'; }));
-    if (m.cols.length > 25) liste.push('et ' + (m.cols.length - 25) + ' autres');
+    // Une ligne par table : d'abord les tables absentes, puis les colonnes manquantes de chaque table présente.
+    var parTable = {};
+    m.cols.forEach(function (x) { (parTable[x.table] = parTable[x.table] || []).push(x.c.id); });
+    var liste = [];
+    if (m.tables.length) liste.push('<li>Tables à créer : ' + m.tables.map(function (t) { return '<code>' + esc(t) + '</code>'; }).join(', ') + '</li>');
+    Object.keys(parTable).forEach(function (t) {
+      var c = parTable[t];
+      liste.push('<li><code>' + esc(t) + '</code> : ' + c.slice(0, 8).map(function (x) { return '<code>' + esc(x) + '</code>'; }).join(', ') + (c.length > 8 ? ' et ' + (c.length - 8) + ' autres colonnes' : '') + '</li>');
+    });
     return '<div class="fr-container fr-mt-2w"><div class="fr-alert fr-alert--warning"><h2 class="fr-alert__title">Ce document ne contient pas tout ce dont le widget a besoin</h2>' +
-      '<p>Manquent : ' + liste.join(', ') + '. Sans eux, certaines informations ne s\'affichent pas et certains enregistrements échouent.</p>' +
+      '<p>Sans les éléments ci-dessous, certaines informations ne s\'affichent pas et certains enregistrements échouent.</p><ul class="fr-text--sm">' + liste.join('') + '</ul>' +
       '<p class="fr-text--sm">' + CONSEIL_RENOMMER + ' Sinon, complétez le document : les tables et colonnes présentes sont gardées, rien n\'est renommé ni supprimé. À faire par un propriétaire du document.</p>' +
       '<button type="button" class="fr-btn fr-btn--sm" data-action="completer-document">Compléter le document</button></div></div>';
   }

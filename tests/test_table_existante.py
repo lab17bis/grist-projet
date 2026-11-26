@@ -24,7 +24,7 @@ with sync_playwright() as p:
     b = p.chromium.launch(executable_path=os.environ.get('CHROME') or None, args=['--no-sandbox'])
     pg, f, err = ouvrir(b, {'Projets': {'colonnes': {'Nom': {'type': 'Text'}}, 'lignes': [{'id': 1, 'Nom': 'Intranet'}]}}, 'Projets')
     x = texte(f)
-    verifier('Projets présente mais incomplète : alerte', 'ne contient pas tout' in x and 'Projets.Titre' in x and 'renommez-la' in x)
+    verifier('Projets présente mais incomplète : alerte', 'ne contient pas tout' in x and 'Titre' in x and 'Tables à créer' in x and 'renommez-la' in x)
     f.get_by_role('button', name='Compléter le document').click(); pg.wait_for_timeout(3000)
     d = pg.evaluate('window.MOCK')['tables']
     verifier('document complété : tables créées, Projets complétée, données gardées', all(t in d for t in ['Actions', 'Personnes', 'Structures']) and 'Titre' in d['Projets']['colonnes'] and d['Projets']['lignes'][0]['Nom'] == 'Intranet')

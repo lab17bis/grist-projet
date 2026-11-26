@@ -227,7 +227,9 @@
         try { r = c && c.description ? JSON.parse(c.description) : {}; } catch (e) { r = {}; }
         appliquerReglages(r);
       }).catch(function () { appliquerReglages({}); });
-    return Promise.all([config].concat(TABLES_LUES.map(function (t) {
+    // Le schéma sert à repérer les colonnes manquantes d'une table déjà présente.
+    var schema = !PUBLIC ? chargerSchema().catch(function () { return null; }) : null;
+    return Promise.all([config, schema].concat(TABLES_LUES.map(function (t) {
       // Page publique : ni personnes, ni comptes, ni journal, ni documents, ni actions ne sont lus.
       if (PUBLIC && t !== 'Structures' && t !== 'Projets') { data[t] = []; return Promise.resolve(); }
       return grist.docApi.fetchTable(t)
@@ -569,7 +571,8 @@
 
   function vueInstallation() {
     return '<h1 class="fr-h3">Installer l\'espace projets dans ce document</h1>' + blocAlerte() +
-      '<p>Le widget va créer ses tables (Projets, Actions, Journal, Documents, Personnes, Structures, Comptes, Parametres), leurs formules et les <strong>règles d\'accès</strong> qui protègent les projets restreints. Si le document contient déjà une table Personnes ou Structures (créée par un autre outil), le widget la reprend et lui ajoute seulement les colonnes qui lui manquent : rien n\'est supprimé ni renommé.</p>' +
+      '<p>Le widget va créer ses tables (Projets, Actions, Journal, Documents, Personnes, Structures, Comptes, Parametres), leurs formules et les <strong>règles d\'accès</strong> qui protègent les projets restreints. Si le document contient déjà certaines de ces tables (créées à la main ou par un autre outil), le widget les reprend et leur ajoute seulement les colonnes qui leur manquent : rien n\'est supprimé ni renommé.</p>' +
+      '<p class="fr-text--sm">' + CONSEIL_RENOMMER + '</p>' +
       '<p class="fr-text--sm">À faire par un propriétaire du document. Le widget doit avoir l\'accès complet au document. Si ce document a déjà des règles d\'accès, vérifiez-les ensuite dans <em>Permissions avancées</em>.</p>' +
       '<ul class="fr-btns-group fr-btns-group--inline-md"><li><button type="button" class="fr-btn" data-installer="vide">Créer les tables</button></li>' +
       '<li><button type="button" class="fr-btn fr-btn--secondary" data-installer="exemple">Créer les tables avec un exemple fictif</button></li></ul>';
@@ -2319,8 +2322,34 @@
   function miseAJourNecessaire() {
     return !DEMO && !PUBLIC && meta.lu && aTable('Actions') && aTable('Personnes') && (!aColonne('Actions', 'Parent') || !aColonne('Personnes', 'Role') || !aColonne('Projets', 'Admins'));
   }
+  // Document où Projets existe déjà (créée à la main ou par une version ancienne) mais
+  // où il manque des tables ou des colonnes : le widget le signale au lieu de se taire.
+  function manquesDocument() {
+    if (DEMO || PUBLIC || !meta.lu || !aTable('Projets') || !schemaCache) return null;
+    var tables = TABLES.filter(function (t) { return !aTable(t); });
+    var cols = colonnesManquantes(schemaCache);
+    return tables.length || cols.length ? { tables: tables, cols: cols } : null;
+  }
+  var CONSEIL_RENOMMER = 'Si l\'une de vos colonnes contient déjà cette information sous un autre nom (par exemple <code>Nom</code> au lieu de <code>Titre</code>), renommez-la d\'abord dans Grist avec le nom attendu : ses données seront reprises.';
+  function bandeauComplement() {
+    var m = manquesDocument();
+    if (!m) return '';
+    // Une ligne par table : d'abord les tables absentes, puis les colonnes manquantes de chaque table présente.
+    var parTable = {};
+    m.cols.forEach(function (x) { (parTable[x.table] = parTable[x.table] || []).push(x.c.id); });
+    var liste = [];
+    if (m.tables.length) liste.push('<li>Tables à créer : ' + m.tables.map(function (t) { return '<code>' + esc(t) + '</code>'; }).join(', ') + '</li>');
+    Object.keys(parTable).forEach(function (t) {
+      var c = parTable[t];
+      liste.push('<li><code>' + esc(t) + '</code> : ' + c.slice(0, 8).map(function (x) { return '<code>' + esc(x) + '</code>'; }).join(', ') + (c.length > 8 ? ' et ' + (c.length - 8) + ' autres colonnes' : '') + '</li>');
+    });
+    return '<div class="fr-container fr-mt-2w"><div class="fr-alert fr-alert--warning"><h2 class="fr-alert__title">Ce document ne contient pas tout ce dont le widget a besoin</h2>' +
+      '<p>Sans les éléments ci-dessous, certaines informations ne s\'affichent pas et certains enregistrements échouent.</p><ul class="fr-text--sm">' + liste.join('') + '</ul>' +
+      '<p class="fr-text--sm">' + CONSEIL_RENOMMER + ' Sinon, complétez le document : les tables et colonnes présentes sont gardées, rien n\'est renommé ni supprimé. À faire par un propriétaire du document.</p>' +
+      '<button type="button" class="fr-btn fr-btn--sm" data-action="completer-document">Compléter le document</button></div></div>';
+  }
   function bandeauMiseAJour() {
-    if (!miseAJourNecessaire()) return '';
+    if (!miseAJourNecessaire()) return bandeauComplement();
     return '<div class="fr-notice fr-notice--info sp-notice"><div class="fr-container"><div class="fr-notice__body">' +
       '<p class="fr-notice__title">Nouvelle version : sous-actions, jalons, dépendances entre actions et rôle « Administration ». ' +
       'Un propriétaire du document doit la mettre à jour. ' +
@@ -2822,6 +2851,7 @@
       if (champSa) { champSa.scrollIntoView({ block: 'center' }); champSa.focus(); }
     }
     else if (a === 'mettre-a-jour') { mettreAJour(); }
+    else if (a === 'completer-document') { el.disabled = true; installer(false); }
     else if (a === 'retro') { var idr = num(el.getAttribute('data-id')); etat.retro = etat.retro === idr ? null : idr; etat.alerte = null; rendre(); var pr = document.querySelector('.sp-retro'); if (pr) pr.scrollIntoView({ block: 'nearest' }); }
     else if (a === 'fermer-retro') { etat.retro = null; rendre(); }
     else if (a === 'appliquer-retro') { appliquerRetro(); }

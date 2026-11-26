@@ -2,6 +2,14 @@
 
 Les adresses `/v1/` ne changent pas : chaque version ajoute ou corrige, sans retirer ce qui existe.
 
+## 2026-11-26 (tables déjà présentes dans le document)
+
+### Corrigé
+- Si le document contenait déjà une table `Projets` (créée à la main), le widget n'installait rien et ne disait rien : les autres tables manquaient, les colonnes attendues aussi (« Projet sans titre »). Il affiche maintenant ce qui manque et propose « Compléter le document » : les tables absentes sont créées, les tables présentes reçoivent seulement leurs colonnes manquantes. Rien n'est renommé ni supprimé.
+
+### Ajouté
+- Conseil affiché : si une de vos colonnes contient déjà l'information sous un autre nom (par exemple `Nom` au lieu de `Titre`), renommez-la dans Grist avec le nom attendu, ses données seront reprises.
+
 ## 2026-11-26 (style commun de configuration)
 
 ### Corrigé
