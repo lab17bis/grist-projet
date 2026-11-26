@@ -2327,7 +2327,8 @@
   function manquesDocument() {
     if (DEMO || PUBLIC || !meta.lu || !aTable('Projets') || !schemaCache) return null;
     var tables = TABLES.filter(function (t) { return !aTable(t); });
-    var cols = colonnesManquantes(schemaCache);
+    // La colonne des réglages est créée au premier enregistrement : elle ne manque pas.
+    var cols = colonnesManquantes(schemaCache).filter(function (m) { return m.c.id !== NOM_COLONNE_CONFIG; });
     return tables.length || cols.length ? { tables: tables, cols: cols } : null;
   }
   var CONSEIL_RENOMMER = 'Si l\'une de vos colonnes contient déjà cette information sous un autre nom (par exemple <code>Nom</code> au lieu de <code>Titre</code>), renommez-la d\'abord dans Grist avec le nom attendu : ses données seront reprises.';
