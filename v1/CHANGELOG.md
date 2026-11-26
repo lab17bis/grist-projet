@@ -2,6 +2,16 @@
 
 Les adresses `/v1/` ne changent pas : chaque version ajoute ou corrige, sans retirer ce qui existe.
 
+## 2026-11-26 (style commun de configuration)
+
+### Corrigé
+- Configuration : sur l'onglet de l'outil, le style commun masquait par erreur tout champ dont l'identifiant finit par « -etat » (dans grist-projet : le filtre « État » de la banque et la liste « État » du formulaire de projet). Seul le badge « Enregistré » de la barre est maintenant masqué. Rien à refaire : rechargez la page.
+
+## 2026-11-26 (adresse courte)
+
+### Ajouté
+- Les adresses `lab17bis.github.io/grist-projet/` et `lab17bis.github.io/grist-projet/v1/` renvoient vers l'outil (`…/suivi-projets/`) au lieu d'une erreur 404. L'adresse à mettre dans Grist reste `https://lab17bis.github.io/grist-projet/v1/suivi-projets/`.
+
 ## 2026-11-26 (carte, filtres, colonnes existantes, rendez-vous)
 
 ### Corrigé

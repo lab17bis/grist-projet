@@ -20,6 +20,9 @@ def reglages(pg):
 with sync_playwright() as p:
     b = p.chromium.launch()
     pg = b.new_page(viewport={"width": 1300, "height": 1000})
+    # Régression 2026-11-26 : le style commun masquait tout élément dont l'id finit par « -etat » (filtre État de la banque).
+    pg.goto(BASE + "/suivi-projets/#/"); pg.wait_for_selector(".sp-cartes")
+    ok("filtre État visible dans la banque", pg.locator("#f-etat").is_visible())
     pg.on("pageerror", lambda e: err.append("pageerror: %s" % e))
     pg.on("console", lambda m: err.append("console: %s" % m.text) if m.type == "error" and "ERR_TUNNEL" not in m.text and "favicon" not in m.text and "404" not in m.text else None)
     pg.goto(BASE + "/suivi-projets/")
