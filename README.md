@@ -34,7 +34,7 @@ Un document Grist devient l'**espace commun d'une équipe** (un service, une dir
 - Le **rôle « Administration »**, attribué par personne dans *Réglages du suivi*, voit et gère tous les projets, y compris restreints. Seuls les propriétaires du document l'attribuent.
 - Chaque personne est reconnue par l'adresse de son compte Grist : il suffit que sa fiche de l'annuaire porte cette adresse. Sinon, elle indique son nom une seule fois.
 
-Contrairement aux widgets de mise en page [grist-catalogue](https://github.com/lab17bis/grist-catalogue), [grist-questionnaire](https://github.com/lab17bis/grist-questionnaire) et [grist-graphique](https://github.com/lab17bis/grist-graphique), cet outil ne produit pas de page publique : il s'utilise **dans Grist**, et chaque personne doit y être connectée. Le document Grist est l'espace : on y invite les membres de l'équipe.
+L'outil s'utilise **dans Grist**, et chaque personne doit y être connectée : le document Grist est l'espace, on y invite les membres de l'équipe. Il peut en plus publier une **banque des projets en lecture seule** sur une page publique (voir « Page publique » plus bas) : seuls les projets non restreints y figurent.
 
 Démonstration avec des données fictives (rien n'est enregistré) : <https://lab17bis.github.io/grist-projet/v1/suivi-projets/>
 
@@ -59,6 +59,7 @@ La barre d'onglets compte six onglets : *Projets* (l'outil), *Réglages*, *Rôle
 | --- | --- |
 | En-tête et pied de page | Logo, bloc-marque, titre, sous-titre, boutons, pied de page, mention d'accessibilité |
 | Champs de la fiche projet | Masquer les champs d'origine (mission, objectifs, origine, dates, thématiques…) et ajouter ses propres champs : texte court ou long, choix dans une liste, date, nombre. Chaque champ ajouté devient une colonne de la table `Projets`, affichée dans le formulaire, la fiche et, au choix, sur la carte. Un champ masqué n'est jamais supprimé : ses données restent dans Grist |
+| Agencement de la fiche projet | Agencement libre façon « bento » : ordre, largeur (pleine, deux tiers, moitié, un tiers) et présence de chaque bloc de la fiche (en bref, mission, objectifs, porteurs et équipe, calendrier, structures et thématiques, champs personnalisés). Désactivé par défaut : la fiche garde alors sa présentation d'origine |
 | Listes de valeurs | Phases, états, origines, thématiques, états des actions, types d'entrées du journal, types de documents. Les choix des colonnes Grist sont mis à jour en même temps |
 | Couleurs des étiquettes | Une couleur par valeur |
 | Rôle « Administration » | Les personnes qui voient et gèrent tous les projets |
@@ -97,7 +98,7 @@ Les réglages sont enregistrés en JSON dans la **description de la colonne `Con
 
 ## Limites
 
-- Fonctionne uniquement dans Grist, avec des personnes connectées.
+- L'outil de travail fonctionne uniquement dans Grist, avec des personnes connectées. Seule la banque des projets peut être publiée (lecture seule, sans plan d'action, journal ni documents).
 - Aucun audit RGAA n'a été mené.
 
 ## Version stable et version en cours

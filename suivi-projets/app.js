@@ -775,6 +775,27 @@
 
   var nouveauChamp = { label: '', type: 'court', choix: '', aide: '', requis: false, carte: false };
 
+  function sectionBento(b) {
+    var actif = Array.isArray(b.bento) && b.bento.length > 0;
+    var h = '<section><h2 class="fr-h5">Agencement de la fiche projet</h2>' +
+      '<p class="fr-text--sm">Par défaut, la fiche garde sa présentation d\'origine. Activez l\'agencement libre pour choisir l\'ordre, la largeur et la présence de chaque bloc. Les blocs vides ne s\'affichent pas. L\'onglet Aperçu montre le résultat.</p>' +
+      '<div class="fr-checkbox-group fr-checkbox-group--sm"><input type="checkbox" id="rg-bento-actif" data-bento="actif"' + (actif ? ' checked' : '') + '><label class="fr-label" for="rg-bento-actif">Agencement libre de la fiche</label></div>';
+    if (actif) {
+      var l = bentoComplet(b.bento);
+      h += '<div class="sp-bento-reglage">';
+      l.forEach(function (x, i) {
+        var nom = BLOCS_FICHE.filter(function (d) { return d[0] === x.id; })[0][1];
+        h += '<div class="sp-bento-ligne"><div class="fr-checkbox-group fr-checkbox-group--sm"><input type="checkbox" id="rg-bl-' + x.id + '" data-bento="visible" data-id="' + x.id + '"' + (x.visible ? ' checked' : '') + '><label class="fr-label" for="rg-bl-' + x.id + '">' + esc(nom) + '</label></div>' +
+          '<div class="fr-select-group"><label class="fr-label fr-sr-only" for="rg-bt-' + x.id + '">Largeur du bloc ' + esc(nom) + '</label><select class="fr-select" id="rg-bt-' + x.id + '" data-bento="taille" data-id="' + x.id + '">' +
+          TAILLES_BLOC.map(function (t) { return '<option value="' + t[0] + '"' + (t[0] === x.taille ? ' selected' : '') + '>' + t[1] + '</option>'; }).join('') + '</select></div>' +
+          '<button type="button" class="fr-btn fr-btn--sm fr-btn--tertiary-no-outline" data-bento-deplacer="-1" data-id="' + x.id + '"' + (i === 0 ? ' disabled' : '') + ' title="Monter ' + esc(nom) + '">Monter</button>' +
+          '<button type="button" class="fr-btn fr-btn--sm fr-btn--tertiary-no-outline" data-bento-deplacer="1" data-id="' + x.id + '"' + (i === l.length - 1 ? ' disabled' : '') + ' title="Descendre ' + esc(nom) + '">Descendre</button></div>';
+      });
+      h += '</div>';
+    }
+    return h + '</section>';
+  }
+
   function sectionChamps(b) {
     b.champsMasques = b.champsMasques || [];
     b.champsPerso = b.champsPerso || [];
@@ -864,7 +885,7 @@
       });
       h += '</div>';
     });
-    h += '</section>' + sectionChamps(b) + '<section><h2 class="fr-h5">Autres réglages</h2>' +
+    h += '</section>' + sectionChamps(b) + sectionBento(b) + '<section><h2 class="fr-h5">Autres réglages</h2>' +
       '<div class="fr-input-group"><label class="fr-label" for="rg-domaine">Domaine des adresses électroniques<span class="fr-hint-text">Sert à suggérer l\'adresse d\'un collègue (prénom.nom@domaine). Exemple : mon-administration.fr. Vide : pas de suggestion.</span></label>' +
       '<input class="fr-input" id="rg-domaine" data-reglage="domaineCourriel" value="' + esc(b.domaineCourriel || '') + '"></div>' +
       '<div class="fr-input-group"><label class="fr-label" for="rg-jours">Alerte « projet à relancer » après (jours sans activité)</label>' +
@@ -1148,7 +1169,56 @@
     return '<div><dt>' + esc(titre) + '</dt><dd>' + (valeur ? valeur : '<span class="sp-vide">Non renseigné</span>') + '</dd></div>';
   }
 
+  // Agencement libre de la fiche (« bento ») : blocs ordonnés, de largeur choisie, sur une grille de 6 colonnes.
+  // Sans réglage, la fiche garde sa présentation d'origine.
+  var BLOCS_FICHE = [['resume', 'En bref'], ['mission', 'Mission confiée'], ['objectifs', 'Objectifs attendus'], ['equipe', 'Porteurs et équipe projet'],
+    ['calendrier', 'Calendrier et avancement'], ['details', 'Structures, origine, thématiques'], ['perso', 'Champs personnalisés']];
+  var TAILLES_BLOC = [['6', 'Pleine largeur'], ['4', 'Deux tiers'], ['3', 'Moitié'], ['2', 'Un tiers']];
+  var BENTO_DEFAUT = [['resume', '6'], ['mission', '4'], ['equipe', '2'], ['objectifs', '3'], ['calendrier', '3'], ['details', '3'], ['perso', '3']];
+  function bentoActif() { return Array.isArray(reglages.bento) && reglages.bento.length > 0; }
+  function bentoComplet(l) {
+    var vus = {}, res = [];
+    (Array.isArray(l) ? l : []).forEach(function (x) {
+      if (x && BLOCS_FICHE.some(function (d) { return d[0] === x.id; }) && !vus[x.id]) { vus[x.id] = 1; res.push({ id: x.id, taille: ['2', '3', '4', '6'].indexOf(String(x.taille)) !== -1 ? String(x.taille) : '6', visible: x.visible !== false }); }
+    });
+    BLOCS_FICHE.forEach(function (d) { if (!vus[d[0]]) res.push({ id: d[0], taille: '6', visible: true }); });
+    return res;
+  }
+  function blocFiche(id, p) {
+    var themes = liste(p.Thematiques).map(function (t) { return '<li><p class="fr-tag fr-tag--sm">' + esc(t) + '</p></li>'; }).join('');
+    var associees = liste(p.Structures_associees).map(libelleStructure).filter(Boolean).join(', ');
+    switch (id) {
+      case 'resume': return p.Resume && !masque('Resume') ? '<div class="sp-section"><h3>En bref</h3><p class="sp-texte">' + esc(p.Resume) + '</p></div>' : '';
+      case 'mission':
+        return (p.Mission || p.Commanditaire) && !(masque('Mission') && masque('Commanditaire')) ?
+          '<div class="fr-callout sp-section"><h3 class="fr-callout__title">Mission confiée' + (nomPersonne(p.Commanditaire) ? ' par ' + esc(nomPersonne(p.Commanditaire)) : '') + '</h3>' +
+          '<p class="fr-callout__text sp-texte">' + esc(p.Mission || 'Consigne non renseignée.') + '</p></div>' : '';
+      case 'objectifs': return p.Objectifs && !masque('Objectifs') ? '<div class="sp-section"><h3>Objectifs attendus</h3><p class="sp-texte">' + esc(p.Objectifs) + '</p></div>' : '';
+      case 'equipe': return '<dl class="sp-infos">' + info('Porteurs', esc(nomsPersonnes(p.Porteurs))) + info('Équipe projet', esc(nomsPersonnes(p.Equipe))) + '</dl>';
+      case 'calendrier':
+        return '<dl class="sp-infos">' + (masque('Date_debut') ? '' : info('Début', esc(dateTexte(p.Date_debut)))) +
+          (masque('Echeance') ? '' : info('Échéance prévisionnelle', esc(dateTexte(p.Echeance)))) +
+          info('Avancement', p.Avancement !== null && p.Avancement !== undefined ? esc(p.Avancement + ' % des actions faites') : '') +
+          info('Dernière activité', esc(dateHeureTexte(p.Derniere_activite))) + '</dl>';
+      case 'details':
+        return '<dl class="sp-infos">' + (masque('Structures_associees') ? '' : info('Structures associées', esc(associees))) + (masque('Origine') ? '' : info('Origine', esc(p.Origine))) +
+          (masque('Thematiques') ? '' : info('Thématiques', themes ? '<ul class="fr-tags-group">' + themes + '</ul>' : '')) + '</dl>';
+      case 'perso': return champsPerso().length ? '<dl class="sp-infos">' + champsPerso().map(function (c) { return info(c.label, esc(valeurPerso(c, p))); }).join('') + '</dl>' : '';
+    }
+    return '';
+  }
+  function ficheBento(p) {
+    var h = '<div class="sp-bento">';
+    bentoComplet(reglages.bento).forEach(function (x) {
+      if (!x.visible) return;
+      var c = blocFiche(x.id, p);
+      if (c) h += '<div class="sp-bloc sp-bloc--' + x.taille + '">' + c + '</div>';
+    });
+    return h + '</div>' + blocPasMoi(p);
+  }
+
   function ongletPresentation(p) {
+    if (bentoActif()) return ficheBento(p);
     var html = '';
     if (p.Resume && !masque('Resume')) html += '<div class="sp-section"><h3>En bref</h3><p class="sp-texte">' + esc(p.Resume) + '</p></div>';
 
@@ -2593,6 +2663,18 @@
     var t = e.target;
     if (!brouillonReglages) return;
     if (t.hasAttribute('data-nouveau')) { nouveauChamp[t.getAttribute('data-nouveau')] = t.type === 'checkbox' ? t.checked : t.value; return; }
+    if (t.getAttribute('data-bento')) {
+      var k = t.getAttribute('data-bento'), idb = t.getAttribute('data-id');
+      if (k === 'actif') {
+        brouillonReglages.bento = t.checked ? BENTO_DEFAUT.map(function (d) { return { id: d[0], taille: d[1], visible: true }; }) : [];
+      } else {
+        var lb = bentoComplet(brouillonReglages.bento), x = lb.filter(function (y) { return y.id === idb; })[0];
+        if (x) { if (k === 'visible') x.visible = t.checked; else x.taille = t.value; }
+        brouillonReglages.bento = lb;
+      }
+      if (configLab) { configLab.rafraichir('reglages'); configLab.modifie(true); }
+      return;
+    }
     if (t.hasAttribute('data-champ-masque')) {
       var cm = t.getAttribute('data-champ-masque');
       var l = (brouillonReglages.champsMasques || []).filter(function (x) { return x !== cm; });
@@ -2611,6 +2693,15 @@
     var g = t.getAttribute('data-reglage-couleur');
     brouillonReglages.couleurs[g] = brouillonReglages.couleurs[g] || {};
     brouillonReglages.couleurs[g][t.getAttribute('data-valeur')] = t.value;
+    if (configLab) { configLab.rafraichir('reglages'); configLab.modifie(true); }
+  });
+  ecoute.addEventListener('click', function (e) {
+    var d = e.target.closest('[data-bento-deplacer]');
+    if (!d || !brouillonReglages || d.disabled) return;
+    var lb = bentoComplet(brouillonReglages.bento), i = lb.map(function (y) { return y.id; }).indexOf(d.getAttribute('data-id')), j = i + Number(d.getAttribute('data-bento-deplacer'));
+    if (i < 0 || j < 0 || j >= lb.length) return;
+    var tmp = lb[i]; lb[i] = lb[j]; lb[j] = tmp;
+    brouillonReglages.bento = lb;
     if (configLab) { configLab.rafraichir('reglages'); configLab.modifie(true); }
   });
   ecoute.addEventListener('click', function (e) {

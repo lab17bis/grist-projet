@@ -2,6 +2,15 @@
 
 Les adresses `/v1/` ne changent pas : chaque version ajoute ou corrige, sans retirer ce qui existe.
 
+## 2026-11-26 (agencement libre de la fiche)
+
+### Ajouté
+- Réglages > « Agencement de la fiche projet » : agencement libre façon bento. On choisit l'ordre, la largeur (pleine, deux tiers, moitié, un tiers) et la présence de chaque bloc de la fiche ; les blocs vides ne s'affichent pas ; l'onglet Aperçu montre le résultat. Valable aussi sur la page publique.
+- Désactivé par défaut : une fiche sans réglage garde exactement sa présentation d'origine.
+
+### Corrigé
+- README : la page publique de la banque des projets est désormais indiquée (elle existe depuis le 24/11) ; la mention « pas de page publique » était périmée.
+
 ## 2026-11-25 (mention de conception)
 
 ### Ajouté

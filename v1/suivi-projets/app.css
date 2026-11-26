@@ -334,3 +334,14 @@ body {
 /* Réglages : champs personnalisés */
 .sp-champ-perso { margin: 0 0 1rem; padding: 1rem; border: 1px solid var(--border-default-grey, #ddd); }
 .sp-champ-perso .fr-checkbox-group { margin-bottom: .25rem; }
+
+/* Agencement libre de la fiche (bento) */
+.sp-bento { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 1rem; margin-bottom: 1rem; }
+.sp-bloc { border: 1px solid var(--border-default-grey); border-radius: .75rem; padding: 1rem 1.25rem; min-width: 0; background: var(--background-default-grey); }
+.sp-bloc > .sp-section, .sp-bloc > .fr-callout { margin: 0; padding: 0; border: 0; box-shadow: none; background: none; }
+.sp-bloc .sp-infos { margin: 0; }
+.sp-bloc--2 { grid-column: span 2; } .sp-bloc--3 { grid-column: span 3; } .sp-bloc--4 { grid-column: span 4; } .sp-bloc--6 { grid-column: span 6; }
+@media (max-width: 48em) { .sp-bloc { grid-column: span 6; } }
+.sp-bento-reglage { margin-top: .75rem; }
+.sp-bento-ligne { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem 1rem; padding: .5rem 0; border-bottom: 1px solid var(--border-default-grey); }
+.sp-bento-ligne .fr-checkbox-group { flex: 1 1 14rem; } .sp-bento-ligne .fr-select-group { margin: 0; }
