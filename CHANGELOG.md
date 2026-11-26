@@ -2,6 +2,17 @@
 
 Les adresses `/v1/` ne changent pas : chaque version ajoute ou corrige, sans retirer ce qui existe.
 
+## 2026-11-26 (carte, filtres, colonnes existantes, rendez-vous)
+
+### Ajouté
+- Réglages > « Utiliser une colonne existante » : les colonnes de données de la table `Projets` ajoutées dans Grist (texte, choix, date, nombre) se reprennent comme champ de la fiche, sans création de colonne. Avant, une colonne qui existait déjà était refusée.
+- Réglages > « Carte de projet » : choix des champs d'origine affichés sur les cartes de la banque (thématiques, origine, mission confiée par, mission, objectifs, structures associées, début).
+- Réglages > « Filtres de la banque » : choix des filtres proposés (structure, phase, état par défaut ; thématiques, origine et champs « Choix dans une liste » en option).
+- Onglet « Rendez-vous » dans la fiche d'un projet, branché sur la table `Reunions` de grist-reunion (colonnes `Projet` et `Notes`, ajoutées par Réglages > Rendez-vous). Objet, date, heure, participants, notes ; ajout, modification, suppression en cascade de l'ordre du jour s'il existe. L'outil ne crée jamais la table `Reunions`.
+
+### Inchangé
+- Sans réglage, la banque garde ses trois filtres et ses cartes d'origine ; sans table `Reunions` branchée, la fiche n'a pas d'onglet Rendez-vous.
+
 ## 2026-11-26 (agencement libre de la fiche)
 
 ### Ajouté

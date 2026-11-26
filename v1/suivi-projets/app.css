@@ -345,3 +345,5 @@ body {
 .sp-bento-reglage { margin-top: .75rem; }
 .sp-bento-ligne { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem 1rem; padding: .5rem 0; border-bottom: 1px solid var(--border-default-grey); }
 .sp-bento-ligne .fr-checkbox-group { flex: 1 1 14rem; } .sp-bento-ligne .fr-select-group { margin: 0; }
+
+.sp-ligne-champs { display: grid; grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr)); gap: 1rem; }

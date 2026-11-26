@@ -58,7 +58,10 @@ La barre d'onglets compte six onglets : *Projets* (l'outil), *Réglages*, *Rôle
 | Rubrique | Ce qu'on y règle |
 | --- | --- |
 | En-tête et pied de page | Logo, bloc-marque, titre, sous-titre, boutons, pied de page, mention d'accessibilité |
-| Champs de la fiche projet | Masquer les champs d'origine (mission, objectifs, origine, dates, thématiques…) et ajouter ses propres champs : texte court ou long, choix dans une liste, date, nombre. Chaque champ ajouté devient une colonne de la table `Projets`, affichée dans le formulaire, la fiche et, au choix, sur la carte. Un champ masqué n'est jamais supprimé : ses données restent dans Grist |
+| Champs de la fiche projet | Masquer les champs d'origine (mission, objectifs, origine, dates, thématiques…) et ajouter ses propres champs : texte court ou long, choix dans une liste, date, nombre. Chaque champ ajouté devient une colonne de la table `Projets`, affichée dans le formulaire, la fiche et, au choix, sur la carte. Une colonne déjà créée dans Grist (texte, choix, date, nombre) se reprend telle quelle avec « Utiliser une colonne existante » : aucune colonne n'est créée ni modifiée. Un champ masqué n'est jamais supprimé : ses données restent dans Grist |
+| Carte de projet | Champs d'origine à afficher sur les cartes de la banque (thématiques, origine, mission, objectifs, structures associées, début…), en plus de ceux que l'on coche sur ses propres champs |
+| Filtres de la banque | Filtres proposés en plus de la recherche, du tri et de l'inclusion des projets terminés : structure, phase et état par défaut, thématiques, origine et chaque champ « Choix dans une liste » au choix |
+| Rendez-vous | Active l'onglet « Rendez-vous » des fiches (voir ci-dessous) |
 | Agencement de la fiche projet | Agencement libre façon « bento » : ordre, largeur (pleine, deux tiers, moitié, un tiers) et présence de chaque bloc de la fiche (en bref, mission, objectifs, porteurs et équipe, calendrier, structures et thématiques, champs personnalisés). Désactivé par défaut : la fiche garde alors sa présentation d'origine |
 | Listes de valeurs | Phases, états, origines, thématiques, états des actions, types d'entrées du journal, types de documents. Les choix des colonnes Grist sont mis à jour en même temps |
 | Couleurs des étiquettes | Une couleur par valeur |
@@ -115,11 +118,12 @@ Plusieurs outils de la même famille peuvent travailler dans un même document G
 
 - **Une seule table `Personnes`** par document. Colonne commune : `Nom`. Colonnes facultatives reconnues par tous : `Email` et `Structure` (référence à `Structures`). Un outil lit cette table si elle existe et la crée seulement si elle manque. Il n'y ajoute que ses propres colonnes.
 - **Une seule table `Structures`** pour les équipes, services ou établissements : `Nom`, `Sigle`, `Type`, `Parent` (structure de rattachement).
+- **Une seule table `Reunions`**, celle de grist-reunion. Un outil de suivi de projets s'y branche en ajoutant deux colonnes facultatives : `Projet` (référence à `Projets`) et `Notes`. Les réunions rattachées à un projet sont alors les mêmes dans les deux outils.
 - **Aucun outil ne supprime ni ne renomme** une table ou une colonne qu'il n'a pas créée.
 - **Les autres tables portent des noms propres à chaque outil**, pour éviter les collisions (par exemple `Actions` pour grist-projet, `Actions_reunion` pour grist-reunion). Les réglages sont rangés dans la description d'une colonne technique propre à l'outil (`Config_…`).
 - **Identifier la personne connectée** : un widget ne connaît pas l'adresse de la personne connectée. Les colonnes « créé par » utilisent une formule `user.Email` calculée à la création. Seul un outil qui doit relier la personne connectée à sa fiche crée la table `Comptes`.
 
-Ce que fait cet outil : Il crée `Personnes`, `Structures` et `Comptes` si elles manquent. Si `Personnes` ou `Structures` existent déjà, il les reprend et leur ajoute seulement ses colonnes (`Role`, `Email_saisi`…). Si `Email` est une colonne saisie et non une formule, il la garde telle quelle.
+Ce que fait cet outil : Il crée `Personnes`, `Structures` et `Comptes` si elles manquent. Si `Personnes` ou `Structures` existent déjà, il les reprend et leur ajoute seulement ses colonnes (`Role`, `Email_saisi`…). Si `Email` est une colonne saisie et non une formule, il la garde telle quelle. Il ne crée jamais la table `Reunions` : s'il la trouve (créée par grist-reunion), Réglages > Rendez-vous propose d'y ajouter les colonnes `Projet` et `Notes`, puis la fiche d'un projet gagne un onglet « Rendez-vous » (objet, date, heure, participants, notes ; ajout, modification, suppression). Supprimer un rendez-vous supprime aussi, s'ils existent, l'ordre du jour, les décisions et les actions de cette réunion.
 
 ## Espaces clés en main
 

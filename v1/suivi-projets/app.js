@@ -69,6 +69,8 @@
     }
   }
   var TABLES = ['Structures', 'Personnes', 'Comptes', 'Parametres', 'Projets', 'Actions', 'Journal', 'Documents'];
+  // Reunions est la table de l'outil Réunions (grist-reunion), partagée : lue si elle existe, jamais créée ici.
+  var TABLES_LUES = TABLES.concat(['Reunions']);
 
   // ---------------------------------------------------------------------------
   // État de l'application
@@ -85,6 +87,7 @@
     onglet: 'presentation',
     modePlan: 'liste',   // affichage du plan d'action : liste | kanban | chronologie
     editionAction: null, // action dont le formulaire de modification est ouvert
+    editionRdv: null,    // rendez-vous dont le formulaire de modification est ouvert
     pilotage: { structure: '', archives: false },
     form: null,          // valeurs du formulaire projet en cours d'édition
     formCle: null,       // route qui a initialisé le formulaire
@@ -195,8 +198,8 @@
     return fetch('../donnees-fictives/exemple.json')
       .then(function (r) { return r.json(); })
       .then(function (json) {
-        var champsDate = ['Echeance', 'Debut', 'Fin', 'Date_debut'];
-        TABLES.forEach(function (t) {
+        var champsDate = ['Echeance', 'Debut', 'Fin', 'Date_debut', 'Date'];
+        TABLES_LUES.forEach(function (t) {
           data[t] = (json[t] || []).map(function (l) {
             var copie = Object.assign({}, l);
             champsDate.forEach(function (c) {
@@ -224,7 +227,7 @@
         try { r = c && c.description ? JSON.parse(c.description) : {}; } catch (e) { r = {}; }
         appliquerReglages(r);
       }).catch(function () { appliquerReglages({}); });
-    return Promise.all([config].concat(TABLES.map(function (t) {
+    return Promise.all([config].concat(TABLES_LUES.map(function (t) {
       // Page publique : ni personnes, ni comptes, ni journal, ni documents, ni actions ne sont lus.
       if (PUBLIC && t !== 'Structures' && t !== 'Projets') { data[t] = []; return Promise.resolve(); }
       return grist.docApi.fetchTable(t)
@@ -245,7 +248,7 @@
 
   function indexer() {
     idx = {};
-    TABLES.forEach(function (t) {
+    TABLES_LUES.forEach(function (t) {
       idx[t] = {};
       (data[t] || []).forEach(function (l) { idx[t][l.id] = l; });
     });
@@ -746,6 +749,16 @@
   var TYPES_CHAMP = [['court', 'Texte court', 'Text'], ['long', 'Texte long', 'Text'], ['choix', 'Choix dans une liste', 'Choice'],
     ['date', 'Date', 'Date'], ['nombre', 'Nombre', 'Numeric']];
 
+  // Champs d'origine que les réglages peuvent ajouter à la carte de projet.
+  var CHAMPS_CARTE = [['Thematiques', 'Thématiques'], ['Origine', 'Origine du projet'], ['Commanditaire', 'Mission confiée par'], ['Mission', 'Mission confiée'],
+    ['Objectifs', 'Objectifs attendus'], ['Structures_associees', 'Structures associées'], ['Date_debut', 'Début']];
+  // Filtres de la banque : structure, phase et état par défaut ; les autres se choisissent dans les réglages.
+  var FILTRES_DEFAUT = ['structure', 'phase', 'etat'];
+  // Colonnes que l'application gère déjà dans la table Projets : elles ne se proposent pas comme champ supplémentaire.
+  var COLONNES_NATIVES = ['Titre', 'Resume', 'Structure_porteuse', 'Porteurs', 'Equipe', 'Structures_associees', 'Phase', 'Etat', 'Origine', 'Commanditaire', 'Mission', 'Objectifs',
+    'Thematiques', 'Date_debut', 'Echeance', 'Visibilite', 'Cree_par', 'Cree_le', 'Maj_le', 'Acces', 'Lecteurs', 'Avancement', 'Derniere_activite', 'Jours_sans_activite', 'Archive',
+    'Contributeurs', 'Admins', 'Config_suivi', 'manualSort'];
+
   function masque(champ) { return (reglages.champsMasques || []).indexOf(champ) !== -1; }
 
   // Champs personnalisés dont la colonne existe dans la table Projets.
@@ -773,7 +786,87 @@
     return aColonne('Projets', id);
   }
 
+  // Colonnes de Projets que l'on peut reprendre comme champ de la fiche : données (pas de formule), de type simple, pas encore utilisées.
+  function colonnesExistantes(b) {
+    var prises = (b.champsPerso || []).map(function (c) { return c.id; });
+    function libre(id) { return COLONNES_NATIVES.indexOf(id) === -1 && prises.indexOf(id) === -1 && !/^gristHelper_/.test(id) && /^[A-Za-z][A-Za-z0-9_]*$/.test(id); }
+    var res = [];
+    if (DEMO) {
+      var premiere = (data.Projets || [])[0] || {};
+      Object.keys(premiere).forEach(function (k) {
+        if (!libre(k) || k === 'id') return;
+        res.push({ id: k, label: k.replace(/_/g, ' '), type: typeof premiere[k] === 'number' ? 'nombre' : 'court', choix: [] });
+      });
+      return res;
+    }
+    var t = (meta.tables || []).filter(function (x) { return x.tableId === 'Projets'; })[0];
+    (meta.colonnes || []).filter(function (c) { return t && c.parentId === t.id && !c.isFormula && libre(c.colId); }).forEach(function (c) {
+      var o = {};
+      try { o = JSON.parse(c.widgetOptions || '{}'); } catch (e) { o = {}; }
+      var type = c.type === 'Text' ? (o.wrap ? 'long' : 'court') : c.type === 'Choice' ? 'choix' : c.type === 'Date' ? 'date' : (c.type === 'Numeric' || c.type === 'Int') ? 'nombre' : '';
+      if (type) res.push({ id: c.colId, label: c.label || c.colId, type: type, choix: type === 'choix' && Array.isArray(o.choices) ? o.choices : [] });
+    });
+    return res;
+  }
+
+  // Valeur d'un champ d'origine, en texte, pour la carte.
+  function valeurNative(id, p) {
+    if (id === 'Thematiques') return liste(p.Thematiques).join(', ');
+    if (id === 'Structures_associees') return liste(p.Structures_associees).map(libelleStructure).filter(Boolean).join(', ');
+    if (id === 'Commanditaire') return nomPersonne(p.Commanditaire);
+    if (id === 'Date_debut') return p.Date_debut ? dateTexte(p.Date_debut) : '';
+    if (id === 'Mission' || id === 'Objectifs') return resumeCourt(p[id]);
+    return p[id] ? String(p[id]) : '';
+  }
+  function carteChamps() {
+    var choisis = Array.isArray(reglages.carteChamps) ? reglages.carteChamps : [];
+    return CHAMPS_CARTE.filter(function (c) { return choisis.indexOf(c[0]) !== -1 && !masque(c[0]); });
+  }
+
+  // Filtres proposés dans la banque : [clé, libellé, options]. Les clés d'origine, ou l'identifiant d'un champ à choix.
+  function filtresDisponibles(persoChoix) {
+    var l = [['structure', 'Structure'], ['phase', 'Phase'], ['etat', 'État'], ['Thematiques', 'Thématiques'], ['Origine', 'Origine du projet']];
+    (persoChoix || []).forEach(function (c) { l.push([c.id, c.label]); });
+    return l;
+  }
+  function filtresActifs() {
+    var choisis = Array.isArray(reglages.filtres) ? reglages.filtres : FILTRES_DEFAUT;
+    var perso = champsPerso().filter(function (c) { return c.type === 'choix'; });
+    return filtresDisponibles(perso).filter(function (f) { return choisis.indexOf(f[0]) !== -1; });
+  }
+  function optionsFiltre(cle) {
+    if (cle === 'phase') return PHASES;
+    if (cle === 'etat') return ETATS;
+    if (cle === 'Thematiques') return THEMATIQUES;
+    if (cle === 'Origine') return ORIGINES;
+    var c = champsPerso().filter(function (x) { return x.id === cle; })[0];
+    return c ? (c.choix || []) : [];
+  }
+
   var nouveauChamp = { label: '', type: 'court', choix: '', aide: '', requis: false, carte: false };
+
+  function sectionCarte(b) {
+    var choisis = Array.isArray(b.carteChamps) ? b.carteChamps : [];
+    var h = '<section><h2 class="fr-h5">Carte de projet</h2><p class="fr-text--sm">Champs d\'origine affichés sur les cartes de la banque, en plus du titre, des étiquettes, de la structure et des porteurs. Pour vos propres champs, cochez « Afficher sur la carte » ci-dessus.</p>' +
+      '<fieldset class="fr-fieldset" aria-labelledby="rg-carte-leg"><legend class="fr-fieldset__legend fr-sr-only" id="rg-carte-leg">Champs affichés sur la carte</legend>';
+    CHAMPS_CARTE.forEach(function (c) {
+      h += '<div class="fr-fieldset__element fr-fieldset__element--inline"><div class="fr-checkbox-group fr-checkbox-group--sm"><input type="checkbox" id="rg-carte-' + c[0] + '" data-carte-natif="' + c[0] + '"' +
+        (choisis.indexOf(c[0]) !== -1 ? ' checked' : '') + '><label class="fr-label" for="rg-carte-' + c[0] + '">' + esc(c[1]) + '</label></div></div>';
+    });
+    return h + '</fieldset></section>';
+  }
+
+  function sectionFiltres(b) {
+    var choisis = Array.isArray(b.filtres) ? b.filtres : FILTRES_DEFAUT;
+    var perso = (b.champsPerso || []).filter(function (c) { return c.type === 'choix'; });
+    var h = '<section><h2 class="fr-h5">Filtres de la banque</h2><p class="fr-text--sm">La recherche, le tri et « Inclure les projets terminés » restent toujours là. Cochez les filtres à proposer en plus. Vos champs « Choix dans une liste » sont proposés aussi.</p>' +
+      '<fieldset class="fr-fieldset" aria-labelledby="rg-filtres-leg"><legend class="fr-fieldset__legend fr-sr-only" id="rg-filtres-leg">Filtres affichés</legend>';
+    filtresDisponibles(perso).forEach(function (f) {
+      h += '<div class="fr-fieldset__element fr-fieldset__element--inline"><div class="fr-checkbox-group fr-checkbox-group--sm"><input type="checkbox" id="rg-filtre-' + esc(f[0]) + '" data-filtre-banque="' + esc(f[0]) + '"' +
+        (choisis.indexOf(f[0]) !== -1 ? ' checked' : '') + '><label class="fr-label" for="rg-filtre-' + esc(f[0]) + '">' + esc(f[1]) + '</label></div></div>';
+    });
+    return h + '</fieldset></section>';
+  }
 
   function sectionBento(b) {
     var actif = Array.isArray(b.bento) && b.bento.length > 0;
@@ -816,6 +909,15 @@
         '<div class="fr-checkbox-group fr-checkbox-group--sm"><input type="checkbox" id="rg-car-' + c.id + '" data-perso="' + esc(c.id) + '" data-drapeau="carte"' + (c.carte ? ' checked' : '') + '><label class="fr-label" for="rg-car-' + c.id + '">Afficher sur la carte</label></div>' +
         '<button type="button" class="fr-btn fr-btn--sm fr-btn--tertiary" data-action="retirer-champ-perso" data-id="' + esc(c.id) + '">Retirer des réglages</button></div>';
     });
+    var exist = colonnesExistantes(b);
+    h += '<h3 class="fr-h6 fr-mt-2w">Utiliser une colonne existante</h3>';
+    if (!exist.length) h += '<p class="fr-text--sm">Aucune autre colonne de données dans la table <code>Projets</code> : toutes sont déjà gérées par l\'application ou reprises ci-dessus.</p>';
+    else {
+      h += '<p class="fr-text--sm">Colonnes de la table <code>Projets</code> que vous avez ajoutées dans Grist : choisissez-en une pour l\'afficher et la saisir dans la fiche. Aucune colonne n\'est créée ni modifiée.</p>' +
+        '<div class="sp-champ-perso"><div class="fr-select-group"><label class="fr-label" for="nc-existante">Colonne</label><select class="fr-select" id="nc-existante">' +
+        exist.map(function (c) { return '<option value="' + esc(c.id) + '">' + esc(c.label) + (c.label !== c.id ? ' (' + esc(c.id) + ')' : '') + ' · ' + esc((TYPES_CHAMP.filter(function (t) { return t[0] === c.type; })[0] || [0, c.type])[1]) + '</option>'; }).join('') +
+        '</select></div><button type="button" class="fr-btn fr-btn--sm fr-mt-1w" data-action="utiliser-colonne">Ajouter à la fiche</button></div>';
+    }
     var n = nouveauChamp;
     h += '<h3 class="fr-h6 fr-mt-2w">Ajouter un champ</h3><div class="sp-champ-perso">' +
       '<div class="fr-input-group"><label class="fr-label" for="nc-label">Libellé</label><input class="fr-input" id="nc-label" data-nouveau="label" value="' + esc(n.label) + '"></div>' +
@@ -837,7 +939,7 @@
     var id = identifiantChamp(label);
     if (!id) { refus('Le libellé doit contenir au moins une lettre ou un chiffre.'); return; }
     if (colonneProjetsPrise(id) || b.champsPerso.some(function (c) { return c.id === id; })) {
-      refus('Le nom de colonne « ' + id + ' » est déjà pris : choisissez un autre libellé.'); return;
+      refus(colonneProjetsPrise(id) ? 'La colonne « ' + id + ' » existe déjà dans la table Projets : choisissez-la dans « Utiliser une colonne existante » plus haut.' : 'Le nom de colonne « ' + id + ' » est déjà pris : choisissez un autre libellé.'); return;
     }
     var choix = String(n.choix || '').split('\n').map(function (x) { return x.trim(); }).filter(Boolean);
     if (n.type === 'choix' && !choix.length) { refus('Indiquez au moins une valeur possible pour un champ « Choix ».'); return; }
@@ -885,7 +987,7 @@
       });
       h += '</div>';
     });
-    h += '</section>' + sectionChamps(b) + sectionBento(b) + '<section><h2 class="fr-h5">Autres réglages</h2>' +
+    h += '</section>' + sectionChamps(b) + sectionCarte(b) + sectionFiltres(b) + sectionBento(b) + sectionRdv() + '<section><h2 class="fr-h5">Autres réglages</h2>' +
       '<div class="fr-input-group"><label class="fr-label" for="rg-domaine">Domaine des adresses électroniques<span class="fr-hint-text">Sert à suggérer l\'adresse d\'un collègue (prénom.nom@domaine). Exemple : mon-administration.fr. Vide : pas de suggestion.</span></label>' +
       '<input class="fr-input" id="rg-domaine" data-reglage="domaineCourriel" value="' + esc(b.domaineCourriel || '') + '"></div>' +
       '<div class="fr-input-group"><label class="fr-label" for="rg-jours">Alerte « projet à relancer » après (jours sans activité)</label>' +
@@ -1049,11 +1151,18 @@
   function projetsFiltres() {
     var f = etat.filtres;
     var q = sansAccent(f.q.trim());
-    var structs = f.structure ? descendants(num(f.structure)) : null;
+    var filtres = filtresActifs();
+    var structs = f.structure && filtres.some(function (x) { return x[0] === 'structure'; }) ? descendants(num(f.structure)) : null;
     var liste_ = data.Projets.filter(function (p) {
       if (!f.archives && p.Archive) return false;
-      if (f.phase && p.Phase !== f.phase) return false;
-      if (f.etat && p.Etat !== f.etat) return false;
+      for (var i = 0; i < filtres.length; i++) {
+        var k = filtres[i][0], v = f[k];
+        if (!v || k === 'structure') continue;
+        if (k === 'phase') { if (p.Phase !== v) return false; }
+        else if (k === 'etat') { if (p.Etat !== v) return false; }
+        else if (k === 'Thematiques') { if (liste(p.Thematiques).indexOf(v) === -1) return false; }
+        else if (String(p[k] === undefined || p[k] === null ? '' : p[k]) !== v) return false;
+      }
       if (structs && structs.indexOf(num(p.Structure_porteuse)) === -1) return false;
       if (q) {
         var texte = sansAccent([p.Titre, p.Resume, p.Mission, cheminDe(p.Structure_porteuse),
@@ -1081,10 +1190,11 @@
     html += '<div class="sp-filtres">' +
       '<div class="fr-input-group"><label class="fr-label" for="f-q">Rechercher</label>' +
       '<input class="fr-input" id="f-q" type="search" data-filtre="q" value="' + esc(f.q) + '" placeholder="Titre, structure, porteur…"></div>' +
-      champSelect('f-structure', 'Structure (et ses services)', f.structure,
-        structuresTriees().map(function (s) { return { v: s.id, t: s.Chemin }; }), 'data-filtre="structure"', 'Toutes') +
-      champSelect('f-phase', 'Phase', f.phase, PHASES, 'data-filtre="phase"', 'Toutes') +
-      champSelect('f-etat', 'État', f.etat, ETATS, 'data-filtre="etat"') +
+      filtresActifs().map(function (fl) {
+        var k = fl[0];
+        if (k === 'structure') return champSelect('f-structure', 'Structure (et ses services)', f.structure, structuresTriees().map(function (s) { return { v: s.id, t: s.Chemin }; }), 'data-filtre="structure"', 'Toutes');
+        return champSelect('f-' + k, fl[1], f[k] || '', optionsFiltre(k), 'data-filtre="' + esc(k) + '"', k === 'phase' ? 'Toutes' : undefined);
+      }).join('') +
       champSelect('f-tri', 'Trier par', f.tri, [
         { v: 'activite', t: 'Activité la plus récente' }, { v: 'echeance', t: 'Échéance la plus proche' }, { v: 'titre', t: 'Titre' }
       ], 'data-filtre="tri"', false) +
@@ -1112,6 +1222,7 @@
     }
     var details = [];
     if (p.Echeance && !masque('Echeance')) details.push('Échéance : ' + dateTexte(p.Echeance));
+    carteChamps().forEach(function (c) { var v = valeurNative(c[0], p); if (v) details.push(c[1] + ' : ' + v); });
     champsPerso().forEach(function (c) { var v = c.carte ? valeurPerso(c, p) : ''; if (v) details.push(c.label + ' : ' + v); });
     if (p.Avancement !== null && p.Avancement !== undefined) details.push(p.Avancement + ' % des actions faites');
 
@@ -1151,7 +1262,7 @@
       ['plan', "Plan d'action (" + acts.length + ')'],
       ['journal', 'Journal (' + jour.length + ')'],
       ['documents', 'Documents (' + docs.length + ')']
-    ];
+    ].concat(rdvActif() ? [['rendezvous', 'Rendez-vous (' + rdvDu(id).length + ')']] : []);
     html += '<fieldset class="fr-segmented fr-segmented--no-legend sp-onglets"><legend class="fr-segmented__legend">Sections de la fiche</legend>' +
       '<div class="fr-segmented__elements">' + onglets.map(function (o) {
         return '<div class="fr-segmented__element"><input type="radio" name="sp-onglet" id="o-' + o[0] + '" value="' + o[0] + '" data-onglet' +
@@ -1161,6 +1272,7 @@
     if (etat.onglet === 'plan') html += ongletPlan(p, acts);
     else if (etat.onglet === 'journal') html += ongletJournal(p, jour);
     else if (etat.onglet === 'documents') html += ongletDocuments(p, docs);
+    else if (etat.onglet === 'rendezvous' && rdvActif()) html += ongletRendezVous(p, rdvDu(id));
     else html += ongletPresentation(p);
     return html;
   }
@@ -1722,6 +1834,92 @@
         '<p class="sp-texte fr-mb-1v">' + esc(j.Message) + '</p>' + boutonSuppression('Journal', j.id) + '</li>';
     }).join('') + '</ol>';
     return html;
+  }
+
+  // --- Rendez-vous : lignes de la table Reunions de l'outil Réunions, rattachées au projet par la colonne Projet ---
+
+  function rdvActif() {
+    return DEMO || (aColonne('Reunions', 'Titre') && aColonne('Reunions', 'Date') && aColonne('Reunions', 'Projet') && aColonne('Reunions', 'Notes'));
+  }
+  function rdvDu(id) {
+    return (data.Reunions || []).filter(function (r) { return num(r.Projet) === id; })
+      .sort(function (a, b) { return (b.Date || 0) - (a.Date || 0); });
+  }
+  function champsRdv(b) {
+    return seulementColonnes('Reunions', { Titre: String(b.Titre || '').trim(), Date: saisieVersDate(b.Date), Heure: String(b.Heure || '').trim(),
+      Participants: String(b.Participants || '').trim(), Notes: String(b.Notes || '').trim() });
+  }
+  function formulaireRdv(cle, b, attrsForm, bouton, annuler) {
+    var a = function (c) { return 'data-brouillon="' + cle + '" data-champ="' + c + '"'; };
+    return '<form class="sp-ajout sp-ajout--large" ' + attrsForm + '>' +
+      '<div class="fr-input-group"><label class="fr-label" for="' + cle + '-titre">Objet du rendez-vous</label><input class="fr-input" id="' + cle + '-titre" ' + a('Titre') + ' value="' + esc(b.Titre || '') + '" required></div>' +
+      '<div class="sp-ligne-champs"><div class="fr-input-group"><label class="fr-label" for="' + cle + '-date">Date</label><input class="fr-input" type="date" id="' + cle + '-date" ' + a('Date') + ' value="' + esc(b.Date || '') + '" required></div>' +
+      '<div class="fr-input-group"><label class="fr-label" for="' + cle + '-heure">Heure<span class="fr-hint-text">Facultatif</span></label><input class="fr-input" type="time" id="' + cle + '-heure" ' + a('Heure') + ' value="' + esc(b.Heure || '') + '"></div></div>' +
+      '<div class="fr-input-group"><label class="fr-label" for="' + cle + '-part">Participants<span class="fr-hint-text">Facultatif</span></label><input class="fr-input" id="' + cle + '-part" ' + a('Participants') + ' value="' + esc(b.Participants || '') + '"></div>' +
+      '<div class="fr-input-group"><label class="fr-label" for="' + cle + '-notes">Notes<span class="fr-hint-text">Ce qui a été dit, décidé, à retenir.</span></label><textarea class="fr-input" rows="4" id="' + cle + '-notes" ' + a('Notes') + '>' + esc(b.Notes || '') + '</textarea></div>' +
+      '<div class="sp-actions-ligne"><button class="fr-btn" type="submit">' + bouton + '</button>' + (annuler ? '<button class="fr-btn fr-btn--tertiary" type="button" data-action="annuler-edition-rdv">Annuler</button>' : '') + '</div></form>';
+  }
+  function ongletRendezVous(p, rdvs) {
+    var b = brouillon('rdv-' + p.id);
+    var html = formulaireRdv('rdv-' + p.id, b, 'data-form="rdv" data-projet="' + p.id + '"', 'Ajouter le rendez-vous', false);
+    if (!rdvs.length) return html + '<p class="sp-vide">Aucun rendez-vous noté pour ce projet.</p>';
+    var aujourdhui = Date.now() / 1000 - 86400;
+    html += '<p class="fr-text--sm fr-mt-2w">Ces rendez-vous sont aussi dans l\'outil Réunions du document. Supprimer un rendez-vous supprime son ordre du jour et son compte rendu s\'il en a.</p><ol class="sp-journal">';
+    rdvs.forEach(function (r) {
+      if (etat.editionRdv === r.id) {
+        var e = brouillon('edit-rdv-' + r.id);
+        if (!e._init) Object.assign(e, { _init: true, Titre: r.Titre || '', Date: dateVersSaisie(r.Date), Heure: r.Heure || '', Participants: r.Participants || '', Notes: r.Notes || '' });
+        html += '<li>' + formulaireRdv('edit-rdv-' + r.id, e, 'data-form="edit-rdv" data-id="' + r.id + '" data-projet="' + p.id + '"', 'Enregistrer', true) + '</li>';
+        return;
+      }
+      html += '<li><p class="sp-journal__meta">' + (r.Date && r.Date > aujourdhui ? badge('À venir', 'info') + ' ' : '') + esc(dateTexte(r.Date)) + (r.Heure ? ' à ' + esc(r.Heure) : '') +
+        (r.Participants ? ' · ' + esc(r.Participants) : '') + '</p>' +
+        '<p class="fr-mb-1v"><strong>' + esc(r.Titre || 'Rendez-vous sans objet') + '</strong></p>' +
+        (r.Notes ? '<p class="sp-texte fr-mb-1v">' + esc(r.Notes) + '</p>' : '') +
+        '<span class="sp-actions-ligne"><button type="button" class="fr-btn fr-btn--sm fr-btn--tertiary-no-outline fr-icon-edit-line" data-action="editer-rdv" data-id="' + r.id + '">Modifier</button>' +
+        boutonSuppression('Reunions', r.id) + '</span></li>';
+    });
+    return html + '</ol>';
+  }
+  function enregistrerRdv(id, pid) {
+    var e = brouillon('edit-rdv-' + id);
+    if (!String(e.Titre || '').trim()) return;
+    executer([['UpdateRecord', 'Reunions', id, champsRdv(e)]], 'Rendez-vous enregistré.', function () { etat.editionRdv = null; delete etat.brouillons['edit-rdv-' + id]; });
+  }
+  // Supprime la réunion et, si l'outil Réunions l'a enrichie, son ordre du jour, ses décisions et ses actions.
+  function actionsSuppressionRdv(id) {
+    var liees = ['Points', 'Decisions', 'Actions_reunion'].filter(function (t) { return !DEMO && (meta.tables || []).some(function (x) { return x.tableId === t; }); });
+    return Promise.all(liees.map(function (t) {
+      return grist.docApi.fetchTable(t).then(function (c) {
+        var ids = lignesDepuisColonnes(c).filter(function (x) { return num(x.Reunion) === id; }).map(function (x) { return x.id; });
+        return ids.length ? ['BulkRemoveRecord', t, ids] : null;
+      }).catch(function () { return null; });
+    })).then(function (a) { return a.filter(Boolean).concat([['RemoveRecord', 'Reunions', id]]); });
+  }
+  // Branche l'onglet : ajoute à la table Reunions les colonnes Projet et Notes. La table elle-même vient de l'outil Réunions.
+  function activerRdv() {
+    var acts = [];
+    if (!aColonne('Reunions', 'Projet')) acts.push(['AddColumn', 'Reunions', 'Projet', { type: 'Ref:Projets', label: 'Projet' }]);
+    if (!aColonne('Reunions', 'Notes')) acts.push(['AddColumn', 'Reunions', 'Notes', { type: 'Text', label: 'Notes', widgetOptions: JSON.stringify({ widget: 'TextBox', wrap: true }) }]);
+    if (!acts.length) return Promise.resolve();
+    return grist.docApi.applyUserActions(acts).then(function () {
+      return Promise.all([grist.docApi.fetchTable('_grist_Tables'), grist.docApi.fetchTable('_grist_Tables_column')]);
+    }).then(function (m) {
+      var tabs = lignesDepuisColonnes(m[0]), cols = lignesDepuisColonnes(m[1]);
+      function col(t, c) { var tb = tabs.filter(function (x) { return x.tableId === t; })[0]; return tb && cols.filter(function (x) { return x.parentId === tb.id && x.colId === c; })[0]; }
+      var moi = col('Reunions', 'Projet'), titre = col('Projets', 'Titre');
+      if (!moi || !titre || moi.visibleCol) return null;
+      return grist.docApi.applyUserActions([['ModifyColumn', 'Reunions', 'Projet', { visibleCol: titre.id }], ['SetDisplayFormula', 'Reunions', null, moi.id, '$Projet.Titre']]);
+    }).then(function () { return charger(); });
+  }
+  function sectionRdv() {
+    var h = '<section><h2 class="fr-h5">Rendez-vous</h2><p class="fr-text--sm">Un onglet « Rendez-vous » dans la fiche d\'un projet, pour noter les rencontres ponctuelles (date, participants, notes). Il utilise la table <code>Reunions</code> de l\'outil Réunions : les deux outils affichent les mêmes réunions, sans doublon.</p>';
+    if (rdvActif()) return h + '<p class="fr-text--sm">' + (DEMO ? 'Démonstration : l\'onglet est actif.' : 'Onglet actif : la table <code>Reunions</code> a les colonnes <code>Projet</code> et <code>Notes</code>.') + '</p></section>';
+    if (!aColonne('Reunions', 'Titre') || !aColonne('Reunions', 'Date')) {
+      return h + '<p class="fr-text--sm">La table <code>Reunions</code> est absente de ce document. Installez d\'abord l\'outil Réunions (widget grist-reunion) dans le même document, puis revenez ici.</p></section>';
+    }
+    return h + '<button type="button" class="fr-btn fr-btn--sm fr-btn--secondary" data-action="activer-rdv">Activer l\'onglet Rendez-vous</button>' +
+      '<p class="fr-text--sm fr-mt-1w">Ajoute deux colonnes à la table <code>Reunions</code> : <code>Projet</code> et <code>Notes</code>. Rien d\'autre n\'est modifié.</p></section>';
   }
 
   function ongletDocuments(p, docs) {
@@ -2555,6 +2753,23 @@
     if (!el) return;
     var a = el.getAttribute('data-action');
     if (a === 'ajouter-champ-perso') { ajouterChampPerso(); return; }
+    if (a === 'utiliser-colonne' && brouillonReglages) {
+      var sel = document.getElementById('nc-existante');
+      var choisie = sel && colonnesExistantes(brouillonReglages).filter(function (c) { return c.id === sel.value; })[0];
+      if (choisie) {
+        brouillonReglages.champsPerso = (brouillonReglages.champsPerso || []).concat([{ id: choisie.id, label: choisie.label, type: choisie.type, aide: '', requis: false, carte: false, choix: choisie.choix }]);
+        if (configLab) { configLab.rafraichir('reglages'); configLab.modifie(true); configLab.message('info', 'Colonne « ' + choisie.label + ' » ajoutée à la fiche. Enregistrez les réglages.'); }
+      }
+      return;
+    }
+    if (a === 'activer-rdv') {
+      el.disabled = true;
+      activerRdv().then(function () {
+        if (configLab) { configLab.rafraichir('reglages'); configLab.message('success', 'Onglet Rendez-vous activé.'); }
+        rendre();
+      }).catch(function (err) { el.disabled = false; if (configLab) configLab.message('error', messageErreur(err)); });
+      return;
+    }
     if (a === 'retirer-champ-perso' && brouillonReglages) {
       var rid = el.getAttribute('data-id');
       brouillonReglages.champsPerso = (brouillonReglages.champsPerso || []).filter(function (c) { return c.id !== rid; });
@@ -2579,6 +2794,7 @@
       etat.suppression = null;
       var tSup = el.getAttribute('data-table'), idSup = num(el.getAttribute('data-id'));
       if (etat.editionAction === idSup) etat.editionAction = null;
+      if (tSup === 'Reunions') { actionsSuppressionRdv(idSup).then(function (acts) { executer(acts, 'Rendez-vous supprimé.'); }); return; }
       executer(tSup === 'Actions' ? actionsSuppressionAction(idSup) : [['RemoveRecord', tSup, idSup]], 'Élément supprimé.');
     }
     else if (a === 'editer-action') {
@@ -2590,6 +2806,13 @@
       if (champEd) champEd.focus();
     }
     else if (a === 'annuler-edition') { etat.editionAction = null; rendre(); }
+    else if (a === 'editer-rdv') {
+      var idR = num(el.getAttribute('data-id'));
+      etat.editionRdv = etat.editionRdv === idR ? null : idR;
+      delete etat.brouillons['edit-rdv-' + idR];
+      etat.alerte = null; rendre();
+    }
+    else if (a === 'annuler-edition-rdv') { etat.editionRdv = null; rendre(); }
     else if (a === 'sous-action') {
       var bs = brouillon('action-' + num(el.getAttribute('data-projet')));
       bs.Parent = num(el.getAttribute('data-id')); bs.Type = 'Action';
@@ -2673,6 +2896,22 @@
         brouillonReglages.bento = lb;
       }
       if (configLab) { configLab.rafraichir('reglages'); configLab.modifie(true); }
+      return;
+    }
+    if (t.hasAttribute('data-carte-natif')) {
+      var cn = t.getAttribute('data-carte-natif');
+      var lc = (brouillonReglages.carteChamps || []).filter(function (x) { return x !== cn; });
+      if (t.checked) lc.push(cn);
+      brouillonReglages.carteChamps = lc;
+      if (configLab) configLab.modifie(true);
+      return;
+    }
+    if (t.hasAttribute('data-filtre-banque')) {
+      var cf = t.getAttribute('data-filtre-banque');
+      var lf = (Array.isArray(brouillonReglages.filtres) ? brouillonReglages.filtres : FILTRES_DEFAUT).filter(function (x) { return x !== cf; });
+      if (t.checked) lf.push(cf);
+      brouillonReglages.filtres = lf;
+      if (configLab) configLab.modifie(true);
       return;
     }
     if (t.hasAttribute('data-champ-masque')) {
@@ -2829,6 +3068,7 @@
     if (type === 'projet') { enregistrerProjet(pid || null); return; }
     if (type === 'mon-profil') { enregistrerMonProfil(); return; }
     if (type === 'edit-action') { enregistrerAction(num(form.getAttribute('data-id'))); return; }
+    if (type === 'edit-rdv') { enregistrerRdv(num(form.getAttribute('data-id')), pid); return; }
 
     var cle = type + '-' + pid;
     var b = brouillon(cle);
@@ -2846,6 +3086,14 @@
       if (!String(b.Message || '').trim()) return;
       champs = { Projet: pid, Type: b.Type || 'Avancement', Message: String(b.Message).trim() };
       executer([['AddRecord', 'Journal', null, champs]], 'Message publié.', function () { delete etat.brouillons[cle]; });
+    } else if (type === 'rdv') {
+      if (!String(b.Titre || '').trim() || !saisieVersDate(b.Date)) {
+        etat.alerte = { type: 'error', texte: 'Indiquez l\'objet et la date du rendez-vous.' };
+        rendre();
+        return;
+      }
+      champs = Object.assign({ Projet: pid }, champsRdv(b));
+      executer([['AddRecord', 'Reunions', null, champs]], 'Rendez-vous ajouté.', function () { delete etat.brouillons[cle]; });
     } else if (type === 'document') {
       if (!String(b.Titre || '').trim() || !lienSur(b.Lien)) {
         etat.alerte = { type: 'error', texte: 'Indiquez un titre et un lien commençant par https://.' };
@@ -2859,7 +3107,7 @@
 
   var ficheCourante = null;
   window.addEventListener('hashchange', function () {
-    etat.alerte = null; etat.suppression = null; etat.ajout = null; etat.doublon = null; etat.pasMoi = null; etat.editionAction = null; etat.retro = null;
+    etat.alerte = null; etat.suppression = null; etat.ajout = null; etat.doublon = null; etat.pasMoi = null; etat.editionAction = null; etat.editionRdv = null; etat.retro = null;
     var r = route();
     if (r.vue !== 'profil') etat.profilForm = null;
     if (r.vue === 'fiche' && r.id !== ficheCourante) { etat.onglet = 'presentation'; ficheCourante = r.id; }

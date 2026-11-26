@@ -113,7 +113,8 @@
    "Date_debut": "2026-09-01",
    "Echeance": "2027-06-30",
    "Visibilite": "Ouvert",
-   "Maj_le": 1793000000
+   "Maj_le": 1793000000,
+   "Livrables_attendus": "Livret d'accueil, programme de la journée d'intégration."
   },
   {
    "id": 2,
@@ -133,7 +134,8 @@
    ],
    "Echeance": null,
    "Visibilite": "Restreint",
-   "Maj_le": 1780000000
+   "Maj_le": 1780000000,
+   "Livrables_attendus": "Tableau de bord mensuel."
   },
   {
    "id": 3,
@@ -379,6 +381,35 @@
    "Titre": "Note de cadrage (exemple)",
    "Type": "Note de cadrage",
    "Lien": "https://exemple.fr/note-de-cadrage"
+  }
+ ],
+ "Reunions": [
+  {
+   "id": 1,
+   "Projet": 1,
+   "Titre": "Point d'étape avec la direction",
+   "Date": "2026-11-12",
+   "Heure": "10:00",
+   "Participants": "Camille Exemple, Direction",
+   "Notes": "Parcours validé dans son principe. Reste à chiffrer la journée d'intégration."
+  },
+  {
+   "id": 2,
+   "Projet": 1,
+   "Titre": "Rencontre avec un service accueillant",
+   "Date": "2027-01-20",
+   "Heure": "14:30",
+   "Participants": "Camille Exemple",
+   "Notes": ""
+  },
+  {
+   "id": 3,
+   "Projet": 2,
+   "Titre": "Recueil des besoins auprès des gestionnaires",
+   "Date": "2026-10-05",
+   "Heure": "",
+   "Participants": "",
+   "Notes": "Trois demandes récurrentes : suivi des délais, doublons, relances."
   }
  ]
 }
