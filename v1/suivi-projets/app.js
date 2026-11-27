@@ -1267,9 +1267,9 @@
 
     if (PUBLIC) etat.onglet = 'presentation';
     var onglets = PUBLIC ? [['presentation', 'Présentation']] : [
-      ['presentation', 'Présentation'],
+      ['presentation', 'Synthèse'],
       ['plan', "Plan d'action (" + acts.length + ')'],
-      ['journal', 'Journal (' + jour.length + ')'],
+      ['journal', 'Journal et notes (' + jour.length + ')'],
       ['documents', 'Documents (' + docs.length + ')']
     ].concat(rdvActif() ? [['rendezvous', 'Rendez-vous (' + rdvDu(id).length + ')']] : []);
     html += '<fieldset class="fr-segmented fr-segmented--no-legend sp-onglets"><legend class="fr-segmented__legend">Sections de la fiche</legend>' +
@@ -1282,8 +1282,37 @@
     else if (etat.onglet === 'journal') html += ongletJournal(p, jour);
     else if (etat.onglet === 'documents') html += ongletDocuments(p, docs);
     else if (etat.onglet === 'rendezvous' && rdvActif()) html += ongletRendezVous(p, rdvDu(id));
-    else html += ongletPresentation(p);
+    else html += (PUBLIC ? '' : syntheseProjet(p, acts, jour, docs)) + ongletPresentation(p);
     return html;
+  }
+
+  // Volet Synthèse : où en est le projet, en un coup d'œil, avec un accès direct aux autres volets.
+  // Rien de nouveau n'est calculé ou saisi : ce sont les actions, le journal, les documents et les rendez-vous du projet.
+  function syntheseProjet(p, acts, jour, docs) {
+    var auj = aujourdhuiSec();
+    var faites = acts.filter(actionFinie).length, retard = acts.filter(actionEnRetard).length;
+    var attente = acts.filter(function (a) { return bloqueePar(a).length; }).length;
+    var aVenir = acts.filter(function (a) { var f = estJalon(a) ? dateJalon(a) : a.Fin; return !actionFinie(a) && f && f >= auj; })
+      .sort(function (a, b) { return (estJalon(a) ? dateJalon(a) : a.Fin) - (estJalon(b) ? dateJalon(b) : b.Fin); });
+    var prochain = aVenir[0];
+    var dernier = jour.slice().sort(function (a, b) { return (b.Cree_le || 0) - (a.Cree_le || 0); })[0];
+    var rdv = rdvActif() ? rdvDu(p.id).filter(function (r) { return r.Date && r.Date >= auj; }).sort(function (a, b) { return a.Date - b.Date; })[0] : null;
+    function carte(titre, valeur, detail, onglet, lien, alerte) {
+      return '<div class="sp-synthese__carte' + (alerte ? ' sp-synthese__carte--alerte' : '') + '"><p class="sp-synthese__titre">' + esc(titre) + '</p>' +
+        '<p class="sp-synthese__valeur">' + valeur + '</p>' + (detail ? '<p class="sp-synthese__detail">' + detail + '</p>' : '') +
+        '<button type="button" class="fr-btn fr-btn--sm fr-btn--tertiary-no-outline fr-icon-arrow-right-line fr-btn--icon-right" data-action="aller-onglet" data-cible="' + onglet + '">' + esc(lien) + '</button></div>';
+    }
+    var h = '<section class="sp-synthese" aria-label="Synthèse du projet">';
+    h += carte('Plan d\'action', acts.length ? Math.round(100 * faites / acts.length) + ' %' : '—',
+      acts.length ? faites + ' fait' + (faites > 1 ? 's' : '') + ' sur ' + acts.length + (retard ? ' · <strong>' + retard + ' en retard</strong>' : '') + (attente ? ' · ' + attente + ' en attente' : '') : 'Aucune action pour l\'instant.',
+      'plan', 'Voir le plan d\'action', retard > 0);
+    h += carte('Prochaine échéance', prochain ? esc(dateTexte(estJalon(prochain) ? dateJalon(prochain) : prochain.Fin)) : '—',
+      prochain ? (estJalon(prochain) ? 'Jalon : ' : '') + esc(prochain.Intitule || '') : 'Aucune échéance à venir.', 'plan', 'Liste, Kanban ou Chronologie');
+    h += carte('Dernière nouvelle', dernier ? esc(dateTexte(dernier.Cree_le)) : '—',
+      dernier ? esc((dernier.Type ? dernier.Type + ' : ' : '') + String(dernier.Message || '').slice(0, 120) + (String(dernier.Message || '').length > 120 ? '…' : '')) : 'Le journal est vide.', 'journal', 'Journal et notes');
+    h += rdv ? carte('Prochain rendez-vous', esc(dateTexte(rdv.Date)), esc(rdv.Titre || ''), 'rendezvous', 'Rendez-vous')
+      : carte('Documents', String(docs.length), docs.length ? 'document' + (docs.length > 1 ? 's' : '') + ' rattaché' + (docs.length > 1 ? 's' : '') + ' au projet' : 'Aucun document.', 'documents', 'Voir les documents');
+    return h + '</section>';
   }
 
   function info(titre, valeur) {
@@ -1550,7 +1579,9 @@
     var jalon = b.Type === 'Jalon';
     var parents = arbreActions(acts).filter(function (x) { return !estJalon(x.a); });
     var attrs = function (c) { return 'data-brouillon="' + cle + '" data-champ="' + c + '"'; };
-    var html = '<form class="sp-ajout sp-ajout--plan" data-form="action" data-projet="' + p.id + '" id="sp-ajout-action">' +
+    // Affichage (Liste, Kanban, Chronologie) en tête du volet, avant le formulaire d'ajout : il se voit sans faire défiler.
+    var html = acts.length ? '<div class="sp-plan__modes">' + selecteurMode('plan', etat.modePlan === 'calendrier' ? 'chronologie' : etat.modePlan, [['liste', 'Liste'], ['kanban', 'Kanban'], ['chronologie', 'Chronologie']], "Affichage du plan d'action") + '</div>' : '';
+    html += '<form class="sp-ajout sp-ajout--plan" data-form="action" data-projet="' + p.id + '" id="sp-ajout-action">' +
       '<div class="fr-input-group sp-ajout__titre"><label class="fr-label" for="a-intitule">' +
       (num(b.Parent) ? 'Nouvelle sous-action de « ' + esc((idx.Actions[num(b.Parent)] || {}).Intitule || '') + ' »' : 'Nouvelle action ou nouveau jalon') + '</label>' +
       '<input class="fr-input" id="a-intitule" ' + attrs('Intitule') + ' value="' + esc(b.Intitule || '') + '" required></div>' +
@@ -1568,8 +1599,7 @@
     var attente = acts.filter(function (a) { return bloqueePar(a).length; }).length;
     var retard = acts.filter(actionEnRetard).length;
     html += '<div class="sp-plan__entete"><p class="fr-text--sm fr-mb-0">' + acts.length + ' élément' + (acts.length > 1 ? 's' : '') + ' · ' + faites + ' fait' + (faites > 1 ? 's' : '') +
-      (attente ? ' · <strong>' + attente + ' en attente</strong>' : '') + (retard ? ' · <strong>' + retard + ' en retard</strong>' : '') + '</p>' +
-      selecteurMode('plan', etat.modePlan === 'calendrier' ? 'chronologie' : etat.modePlan, [['liste', 'Liste'], ['kanban', 'Kanban'], ['chronologie', 'Chronologie']], "Affichage du plan d'action") + '</div>';
+      (attente ? ' · <strong>' + attente + ' en attente</strong>' : '') + (retard ? ' · <strong>' + retard + ' en retard</strong>' : '') + '</p></div>';
     if (etat.retro && idx.Actions[etat.retro] && num(idx.Actions[etat.retro].Projet) === p.id) html += panneauRetro();
     if (etat.modePlan === 'kanban') return html + kanbanActions(acts);
     if (etat.modePlan === 'chronologie' || etat.modePlan === 'calendrier') return html + chronologieActions(acts);
@@ -1840,7 +1870,7 @@
     var html = '<form class="sp-ajout sp-ajout--large" data-form="journal" data-projet="' + p.id + '">' +
       champSelect('j-type', 'Type', b.Type || 'Avancement', TYPES_JOURNAL, 'data-brouillon="journal-' + p.id + '" data-champ="Type"', false) +
       '<div class="fr-input-group"><label class="fr-label" for="j-message">Où en est le projet ?' +
-      '<span class="fr-hint-text">Quelques lignes suffisent : ce qui avance, ce qui bloque, ce qui a été décidé.</span></label>' +
+      '<span class="fr-hint-text">Quelques lignes suffisent : ce qui avance, ce qui bloque, ce qui a été décidé, ou une note à garder (type « Information »).</span></label>' +
       '<textarea class="fr-input" id="j-message" rows="3" data-brouillon="journal-' + p.id + '" data-champ="Message" required>' + esc(b.Message || '') + '</textarea></div>' +
       '<div><button class="fr-btn fr-icon-send-plane-line fr-btn--icon-left" type="submit">Publier dans le journal</button></div></form>';
 
@@ -2799,6 +2829,7 @@
     var el = e.target.closest('[data-action]');
     if (!el) return;
     var a = el.getAttribute('data-action');
+    if (a === 'aller-onglet') { etat.onglet = el.getAttribute('data-cible'); etat.alerte = null; etat.suppression = null; rendre(); window.scrollTo(0, 0); return; }
     if (a === 'ajouter-champ-perso') { ajouterChampPerso(); return; }
     if (a === 'utiliser-colonne' && brouillonReglages) {
       var sel = document.getElementById('nc-existante');

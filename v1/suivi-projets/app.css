@@ -347,3 +347,13 @@ body {
 .sp-bento-ligne .fr-checkbox-group { flex: 1 1 14rem; } .sp-bento-ligne .fr-select-group { margin: 0; }
 
 .sp-ligne-champs { display: grid; grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr)); gap: 1rem; }
+
+/* Volet Synthèse de la fiche projet */
+.sp-synthese { display: grid; grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr)); gap: 1rem; margin: 1.5rem 0 2rem; }
+.sp-synthese__carte { border: 1px solid var(--border-default-grey); padding: 1rem; display: flex; flex-direction: column; }
+.sp-synthese__carte--alerte { border-left: 4px solid var(--border-plain-error); }
+.sp-synthese__titre { font-size: .875rem; font-weight: 700; margin: 0 0 .25rem; color: var(--text-mention-grey); }
+.sp-synthese__valeur { font-size: 1.5rem; font-weight: 700; line-height: 1.2; margin: 0 0 .25rem; }
+.sp-synthese__detail { font-size: .875rem; margin: 0 0 .5rem; flex: 1; }
+.sp-synthese__carte .fr-btn { align-self: flex-start; margin-top: auto; }
+.sp-plan__modes { margin: 1rem 0; }

@@ -2,6 +2,12 @@
 
 Les adresses `/v1/` ne changent pas : chaque version ajoute ou corrige, sans retirer ce qui existe.
 
+## 2026-11-27 (fiche en volets)
+- Le premier volet de la fiche devient **Synthèse** : quatre cartes en tête (plan d'action, prochaine échéance, dernière nouvelle, prochain rendez-vous ou documents), chacune avec un lien vers son volet, puis la présentation habituelle. Rien de nouveau n'est saisi ni calculé dans Grist.
+- **Plan d'action** : le choix *Liste*, *Kanban*, *Chronologie* passe en tête du volet, au-dessus du formulaire d'ajout.
+- Le volet *Journal* s'appelle **Journal et notes** ; l'aide du formulaire mentionne les notes à garder.
+- Page publique inchangée : présentation seule.
+
 ## 2026-11-27 (courriel d'une personne ajoutée)
 - Correction : dans un document où l'annuaire a créé la table `Personnes` (colonne `Email` saisie, et non calculée), une personne ajoutée depuis le formulaire projet reçoit son adresse dans `Email`. Auparavant elle allait dans `Email_saisi`, invisible pour l'annuaire et pour ses règles d'accès. Dans un document installé par cet outil (`Email` calculée), rien ne change.
 

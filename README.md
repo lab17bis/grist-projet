@@ -15,6 +15,17 @@ Un document Grist devient l'**espace commun d'une équipe** (un service, une dir
 | **Encadrement** | Une vue d'ensemble : chiffres clés, projets à relancer, jalons des 30 prochains jours, actions en retard ou en attente, kanban des phases, calendrier, répartition par structure |
 | **Toutes les personnes de l'espace** | Une banque des projets consultable : qui porte quoi, où en est chaque projet. Elle sert aussi d'archive |
 
+### La fiche d'un projet
+
+Quatre volets, visibles en tête de la fiche (cinq avec les rendez-vous) :
+
+- **Synthèse** : où en est le projet en un coup d'œil (part des actions faites, retards et attentes, prochaine échéance, dernière nouvelle du journal, prochain rendez-vous ou nombre de documents), chacun avec un lien vers son volet ; puis la présentation du projet (en bref, mission, objectifs, équipe, dates, champs personnalisés).
+- **Plan d'action** : le choix de l'affichage (*Liste*, *Kanban*, *Chronologie*) est en tête du volet, au-dessus du formulaire d'ajout.
+- **Journal et notes** : les nouvelles datées du projet (avancement, décisions, difficultés) et les notes à garder (type « Information »).
+- **Documents**, et **Rendez-vous** quand l'outil Réunions est branché.
+
+La page publique n'affiche que la présentation, sans la synthèse.
+
 ### Le plan d'action
 
 - **Actions et sous-actions**, sur autant de niveaux que nécessaire. Une action parente affiche la progression de ses sous-actions (« 2/3 faites »).
@@ -162,7 +173,7 @@ Grist, widget Grist, widget-outil, gestion de projet en équipe, espace d'équip
 
 ## Page publique
 
-Paramètres de l'adresse : `public=1&doc=<lien>` sur la page `suivi-projets/`. Seules les tables `Structures` et `Projets` sont lues. Les projets de visibilité « Restreint » sont exclus, et l'onglet Publication permet de ne publier que certaines phases ; la visibilité « Ouvert » ne veut pas dire public. Seul l'onglet Présentation des fiches est affiché.
+Paramètres de l'adresse : `public=1&doc=<lien>` sur la page `suivi-projets/`. Seules les tables `Structures` et `Projets` sont lues. Les projets de visibilité « Restreint » sont exclus, et l'onglet Publication permet de ne publier que certaines phases ; la visibilité « Ouvert » ne veut pas dire public. Seule la présentation des fiches est affichée (ni synthèse, ni plan d'action, ni journal).
 
 L'onglet **Publication** construit le lien d'une page publique : collez le lien du document Grist partagé en lecture publique (*Partager › Accès public : Lecteur*), puis copiez ou ouvrez le lien obtenu. La page est en lecture seule, sans compte, et n'écrit jamais dans le document. L'option `integre=1` retire l'en-tête et le pied de page pour intégrer la page dans un autre site ou dans le [portail](https://github.com/lab17bis/grist-portail).
 
