@@ -8,6 +8,7 @@ Les adresses `/v1/` ne changent pas : chaque version ajoute ou corrige, sans ret
 - Liens et boutons « Réglages » ou « Configurer » de l'outil masqués : la barre suffit.
 - Même lien, deux affichages : chaque vue Grist choisit, dans Publication, l'éditeur du widget ou la page d'usage (l'outil avec son en-tête et son pied, sans barre, avec un lien « Éditer le widget »). Le choix est une option de la vue Grist ; par défaut, l'éditeur s'affiche comme avant.
 - Aperçu réel : la vraie banque des projets et les vraies fiches, avec les réglages en cours, au lieu d'un échantillon figé.
+- Affichage de la vue : après « Appliquer à cette vue », un texte rappelle de cliquer sur Enregistrer en haut de la vue Grist pour garder le choix (vérifié dans Grist).
 
 ## 2026-11-27 (adresse refusée)
 - Publication : une adresse de page contenant l'identifiant long du document est refusée avec un message qui explique quoi copier (Grist ignore la page dans ce cas).
