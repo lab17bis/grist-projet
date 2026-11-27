@@ -35,8 +35,10 @@ with sync_playwright() as p:
     ok("« En bref » est descendu d'un rang", ordre[:2] == ["mission", "resume"], ordre)
     pg.click("label[for=rg-bl-details]")
     pg.locator("label.fr-label", has_text="Aperçu").first.click()
-    pg.wait_for_selector("[inert] .sp-bento")
-    classes = pg.eval_on_selector_all("[inert] .sp-bloc", "e => e.map(x => x.className)")
+    pg.wait_for_selector(".cl-apercu .sp-cartes")
+    pg.locator(".cl-apercu .fr-card a").first.click()  # l'aperçu est l'outil réel : on ouvre une fiche
+    pg.wait_for_selector(".cl-apercu .sp-bento")
+    classes = pg.eval_on_selector_all(".cl-apercu .sp-bloc", "e => e.map(x => x.className)")
     ok("aperçu : blocs sur la grille, « Structures, origine… » masqué", len(classes) >= 3 and not any("details" in c for c in classes), classes)
     ok("aperçu : largeur Deux tiers pour le bloc équipe", any("sp-bloc--4" in c for c in classes), classes)
     pg.locator("label.fr-label", has_text="Réglages").first.click()

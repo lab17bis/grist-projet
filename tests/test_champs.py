@@ -49,10 +49,10 @@ with sync_playwright() as p:
 
     # 3. aperçu réel
     pg.locator("label.fr-label", has_text="Aperçu").first.click()
-    pg.wait_for_selector("[inert] .sp-cartes")
-    ok("aperçu = vraies cartes", pg.locator("[inert] .fr-card").count() >= 2)
+    pg.wait_for_selector(".cl-apercu .sp-cartes")
+    ok("aperçu = vraies cartes", pg.locator(".cl-apercu .fr-card").count() >= 2)
     ok("aperçu sans faux exemple", pg.get_by_text("Exemple de projet").count() == 0)
-    pg.locator("label.fr-label", has_text="Projets").first.click()
+    pg.locator(".cl-barre .cl-onglets label", has_text="Aperçu").click()
 
     # 4. formulaire : Mission absente, champs perso présents
     pg.goto(BASE + "/suivi-projets/#/nouveau")

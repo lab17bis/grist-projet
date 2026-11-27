@@ -48,7 +48,7 @@ with sync_playwright() as p:
     pg.click("label[for=rg-filtre-etat]")
     pg.click("[data-cl-enregistrer]")
     pg.wait_for_timeout(500)
-    pg.locator("label.fr-label", has_text="Projets").first.click()
+    pg.locator(".cl-barre .cl-onglets label", has_text="Aperçu").click()
     pg.wait_for_selector(".sp-cartes")
     txt = pg.inner_text(".sp-cartes")
     ok("carte : thématiques affichées", "Thématiques : Ressources humaines" in txt)

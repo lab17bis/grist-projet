@@ -1032,15 +1032,19 @@
     brouillonReglages = JSON.parse(JSON.stringify(reglages || {}));
     brouillonReglages.page = brouillonReglages.page || { marque: '', titre: 'Suivi des projets', pied: { accessibilite: '' } };
     configLab = window.ConfigLab.monter(z, {
-      nom: 'Suivi de projets',
+      nom: 'Widget projet',
       vue: { libelle: 'Projets', element: app },
       ongletInitial: route().vue === 'reglages' ? 'reglages' : 'vue',
       page: brouillonReglages.page,
       onglets: [
-        { id: 'reglages', libelle: 'Réglages', rendre: function (zone) { zone.innerHTML = reglagesPropres(); } },
+        { id: 'reglages', libelle: 'Général', rendre: function (zone) { zone.innerHTML = reglagesPropres(); } },
         { id: 'roles', libelle: 'Rôles', rendre: function (zone) { zone.innerHTML = reglagesRoles(); } }
       ],
-      apercu: function (zone) { zone.innerHTML = apercuReel(); },
+      // Aperçu réel : l'outil lui-même, avec les réglages en cours de saisie (même non enregistrés).
+      surApercu: function (ouvert) {
+        if (ouvert && configLab && configLab.estModifie() && brouillonReglages) { avantApercu = reglages; reglages = brouillonReglages; rendre(); }
+        else if (!ouvert && avantApercu) { reglages = avantApercu; avantApercu = null; rendre(); }
+      },
       publication: { mode: 'connecte', adresseWidget: location.href.split('#')[0].split('?')[0], texte: 'Les projets restreints ne sont visibles que des personnes désignées et du rôle Administration (onglet Rôles).',
         publier: {
           lienDoc: (brouillonReglages.publication && brouillonReglages.publication.lienDoc) || '',
@@ -1054,6 +1058,7 @@
   }
 
   // Aperçu : la vraie page (banque et fiche d'un projet) avec les réglages en cours, non interactive.
+  var avantApercu = null;
   function apercuReel() {
     var sauve = reglages;
     reglages = brouillonReglages || reglages;

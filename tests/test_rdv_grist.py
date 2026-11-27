@@ -121,7 +121,7 @@ with sync_playwright() as p:
     ajoutees = [a[2] for a in acts if a[0] == "AddColumn" and a[1] == "Reunions"]
     ok("A : activation = colonnes Projet et Notes ajoutées à Reunions, rien d'autre", sorted(ajoutees) == ["Notes", "Projet"] and not any(a[0] == "AddTable" for a in acts), ajoutees)
     ok("A : le libellé du projet s'affiche dans la colonne Projet", any(a[0] == "SetDisplayFormula" and a[1] == "Reunions" for a in acts))
-    fr.locator("label.fr-label", has_text="Projets").first.click(); pg.wait_for_timeout(300)
+    fr.locator(".cl-barre .cl-onglets label", has_text="Aperçu").click(); pg.wait_for_timeout(300)
     frame.evaluate("location.hash = '#/projet/1'"); pg.wait_for_timeout(400)
     ok("A : onglet Rendez-vous visible après branchement", fr.locator("label[for=o-rendezvous]").count() == 1)
     fr.locator("label[for=o-rendezvous]").click()
