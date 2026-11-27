@@ -1522,6 +1522,16 @@
     var t = (meta.tables || []).filter(function (x) { return x.tableId === table; })[0];
     return !!t && (meta.colonnes || []).some(function (c) { return c.parentId === t.id && c.colId === col; });
   }
+  // Colonne où écrire le courriel d'une personne, comme l'annuaire (grist-annuaire) : Email_saisi quand Email est
+  // une formule (schéma de cet outil), Email quand c'est une donnée (document où l'annuaire a créé Personnes).
+  // Sans cela, une personne ajoutée ici n'aurait pas d'adresse pour l'annuaire ni pour ses règles d'accès.
+  function colonneCourriel() {
+    if (DEMO || !meta.lu) return 'Email_saisi';
+    var t = (meta.tables || []).filter(function (x) { return x.tableId === 'Personnes'; })[0];
+    var c = t && (meta.colonnes || []).filter(function (x) { return x.parentId === t.id && x.colId === 'Email'; })[0];
+    if (c && !(c.isFormula && String(c.formula || '').trim())) return 'Email';
+    return 'Email_saisi';
+  }
   function seulementColonnes(table, champs) {
     Object.keys(champs).forEach(function (k) { if (!aColonne(table, k)) delete champs[k]; });
     return champs;
@@ -2643,7 +2653,8 @@
     if (meme) { a.memeEmail = meme.id; rendre(); return; }
     var proche = personneProche(nom);
     if (proche && a.proche !== proche.id) { a.proche = proche.id; rendre(); return; }
-    executer([['AddRecord', 'Personnes', null, { Nom: nom, Email_saisi: email, Structure: num(a.Structure) }]], '« ' + nom + ' » ajouté à l\'annuaire.', function (res) {
+    var fiche = { Nom: nom, Structure: num(a.Structure) }; fiche[colonneCourriel()] = email;
+    executer([['AddRecord', 'Personnes', null, fiche]], '« ' + nom + ' » ajouté à l\'annuaire.', function (res) {
       var id = res && res.retValues && res.retValues[0];
       if (id && etat.form && etat.form[champ].indexOf(id) === -1) etat.form[champ].push(id);
       etat.ajout = null;

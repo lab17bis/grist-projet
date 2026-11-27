@@ -2,12 +2,16 @@
 
 Les adresses `/v1/` ne changent pas : chaque version ajoute ou corrige, sans retirer ce qui existe.
 
+## 2026-11-27 (courriel d'une personne ajoutée)
+- Correction : dans un document où l'annuaire a créé la table `Personnes` (colonne `Email` saisie, et non calculée), une personne ajoutée depuis le formulaire projet reçoit son adresse dans `Email`. Auparavant elle allait dans `Email_saisi`, invisible pour l'annuaire et pour ses règles d'accès. Dans un document installé par cet outil (`Email` calculée), rien ne change.
+
 ## 2026-11-27 (barre commune de l'éditeur)
 - Barre commune à tous les widgets (fichier partagé `commun/barre.js` et `commun/barre.css`) : nom du widget et statut à gauche, onglets Réglages, En-tête et pied, Aperçu, Publication au centre, Enregistrer à droite ; barre collante en haut de l'écran.
 - L'outil n'a plus d'onglet à son nom : il s'utilise dans l'Aperçu, ouvert par défaut, avec l'en-tête et le pied de page (affichés une seule fois). Les rubriques propres à l'outil sont des sous-onglets de Réglages quand il y en a plusieurs.
 - Liens et boutons « Réglages » ou « Configurer » de l'outil masqués : la barre suffit.
 - Même lien, deux affichages : chaque vue Grist choisit, dans Publication, l'éditeur du widget ou la page d'usage (l'outil avec son en-tête et son pied, sans barre, avec un lien « Éditer le widget »). Le choix est une option de la vue Grist ; par défaut, l'éditeur s'affiche comme avant.
 - Aperçu réel : la vraie banque des projets et les vraies fiches, avec les réglages en cours, au lieu d'un échantillon figé.
+- Affichage de la vue : après « Appliquer à cette vue », un texte rappelle de cliquer sur Enregistrer en haut de la vue Grist pour garder le choix (vérifié dans Grist).
 
 ## 2026-11-27 (adresse refusée)
 - Publication : une adresse de page contenant l'identifiant long du document est refusée avec un message qui explique quoi copier (Grist ignore la page dans ce cas).
