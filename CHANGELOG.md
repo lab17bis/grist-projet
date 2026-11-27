@@ -2,6 +2,9 @@
 
 Les adresses `/v1/` ne changent pas : chaque version ajoute ou corrige, sans retirer ce qui existe.
 
+## 2026-11-27 (accès au document)
+- Dans Grist, quand le widget ne peut pas lire le document (accès complet non accordé, ou compte sans droit de lecture), un message le dit et indique quoi faire, au lieu d'un outil vide ou d'un écran d'installation. Contrôle commun, dans `commun/barre.js`.
+
 ## 2026-11-27 (fiche en volets)
 - Le premier volet de la fiche devient **Synthèse** : quatre cartes en tête (plan d'action, prochaine échéance, dernière nouvelle, prochain rendez-vous ou documents), chacune avec un lien vers son volet, puis la présentation habituelle. Rien de nouveau n'est saisi ni calculé dans Grist.
 - **Plan d'action** : le choix *Liste*, *Kanban*, *Chronologie* passe en tête du volet, au-dessus du formulaire d'ajout.
