@@ -7,6 +7,7 @@ Les adresses `/v1/` ne changent pas : chaque version ajoute ou corrige, sans ret
 - Dans Grist, quand le widget ne peut pas lire le document (accès complet non accordé, ou compte sans droit de lecture), un message le dit et indique quoi faire, au lieu d'un outil vide ou d'un écran d'installation. Contrôle commun, dans `commun/barre.js`.
 
 ## 2026-11-27 (fiche en volets)
+- Vue d'ensemble aérée : sommaire « Aller à » sous les chiffres clés (projets à relancer, jalons, actions en retard, par phase, calendrier, par structure) et rubriques séparées par un filet.
 - Le premier volet de la fiche devient **Synthèse** : quatre cartes en tête (plan d'action, prochaine échéance, dernière nouvelle, prochain rendez-vous ou documents), chacune avec un lien vers son volet, puis la présentation habituelle. Rien de nouveau n'est saisi ni calculé dans Grist.
 - **Plan d'action** : le choix *Liste*, *Kanban*, *Chronologie* passe en tête du volet, au-dessus du formulaire d'ajout.
 - Le volet *Journal* s'appelle **Journal et notes** ; l'aide du formulaire mentionne les notes à garder.

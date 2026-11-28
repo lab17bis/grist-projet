@@ -357,3 +357,8 @@ body {
 .sp-synthese__detail { font-size: .875rem; margin: 0 0 .5rem; flex: 1; }
 .sp-synthese__carte .fr-btn { align-self: flex-start; margin-top: auto; }
 .sp-plan__modes { margin: 1rem 0; }
+
+/* Vue d'ensemble aérée : sommaire et rubriques séparées */
+.sp-pil-sommaire { display: flex; flex-wrap: wrap; gap: .5rem; align-items: center; margin: 1.5rem 0 .5rem; }
+.sp-pil-titre { margin-top: 3rem; padding-top: 1.5rem; border-top: 1px solid var(--border-default-grey); scroll-margin-top: 5rem; }
+.sp-pil-titre + .sp-defile, .sp-pil-titre + .sp-vide, .sp-pil-titre + p { margin-top: 1rem; }

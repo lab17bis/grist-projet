@@ -26,6 +26,8 @@ Quatre volets, visibles en tête de la fiche (cinq avec les rendez-vous) :
 
 La page publique n'affiche que la présentation, sans la synthèse.
 
+La **vue d'ensemble** commence par les chiffres clés, puis un sommaire « Aller à » mène directement à chaque rubrique (projets à relancer, jalons, actions en retard, projets par phase, calendrier, répartition par structure).
+
 ### Le plan d'action
 
 - **Actions et sous-actions**, sur autant de niveaux que nécessaire. Une action parente affiche la progression de ses sous-actions (« 2/3 faites »).

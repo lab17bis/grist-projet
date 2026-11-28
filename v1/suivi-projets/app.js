@@ -2333,14 +2333,14 @@
     var alertes = acts.filter(function (a) { return !estJalon(a) && (actionEnRetard(a) || bloqueePar(a).length); })
       .sort(function (a, b) { return (a.Fin || 9e12) - (b.Fin || 9e12); });
     var lienProjet = function (a) { var p = idx.Projets[num(a.Projet)]; return p ? '<a class="fr-link" href="#/projet/' + p.id + '">' + esc(p.Titre || 'Projet sans titre') + '</a>' : ''; };
-    var html = '<h2 class="fr-h5 fr-mt-4w">Jalons des 30 prochains jours (' + jalons.length + ')</h2>';
+    var html = '<h2 class="fr-h5 sp-pil-titre" id="sp-pil-jalons">Jalons des 30 prochains jours (' + jalons.length + ')</h2>';
     if (!jalons.length) html += '<p class="sp-vide">Aucun jalon à venir ni dépassé.</p>';
     else html += '<div class="sp-defile"><table class="sp-table"><thead><tr><th>Date</th><th>Jalon</th><th>Projet</th><th>Responsable</th></tr></thead><tbody>' +
       jalons.map(function (a) {
         return '<tr><td>' + esc(dateTexte(dateJalon(a))) + (actionEnRetard(a) ? ' ' + badge('Dépassé', 'error', true) : '') + '</td>' +
           '<td><span class="sp-losange" aria-hidden="true"></span>' + esc(a.Intitule) + '</td><td>' + lienProjet(a) + '</td><td>' + esc(nomPersonne(a.Responsable)) + '</td></tr>';
       }).join('') + '</tbody></table></div>';
-    html += '<h2 class="fr-h5 fr-mt-4w">Actions en retard ou en attente (' + alertes.length + ')</h2>';
+    html += '<h2 class="fr-h5 sp-pil-titre" id="sp-pil-actions">Actions en retard ou en attente (' + alertes.length + ')</h2>';
     if (!alertes.length) html += '<p class="sp-vide">Aucune action en retard ni en attente d\'une autre.</p>';
     else html += '<div class="sp-defile"><table class="sp-table"><thead><tr><th>Action</th><th>Projet</th><th>Responsable</th><th>Fin prévue</th></tr></thead><tbody>' +
       alertes.slice(0, 30).map(function (a) {
@@ -2518,11 +2518,16 @@
       return '<li class="sp-chiffre' + (c[2] && c[0] ? ' sp-chiffre--' + c[2] : '') + '"><span class="sp-chiffre__valeur">' + c[0] +
         '</span><span class="sp-chiffre__libelle">' + esc(c[1]) + '</span></li>';
     }).join('') + '</ul>';
+    // Sommaire : la vue est longue, on va directement à la rubrique voulue (boutons, pour ne pas changer d'écran).
+    html += '<nav class="sp-pil-sommaire" aria-label="Rubriques de la vue d\'ensemble"><span class="fr-text--sm fr-mb-0">Aller à\u00a0:</span>' +
+      [['relancer', 'Projets à relancer'], ['jalons', 'Jalons'], ['actions', 'Actions en retard'], ['phases', 'Par phase'], ['calendrier', 'Calendrier'], ['structures', 'Par structure']].map(function (x) {
+        return '<button type="button" class="fr-tag fr-tag--sm" data-action="aller-section" data-cible="sp-pil-' + x[0] + '">' + x[1] + '</button>';
+      }).join('') + '</nav>';
 
     // Projets à relancer
     var aRelancer = actifs.filter(function (p) { return p.Etat === 'Bloqué' || endormi(p) || enRetard(p); })
       .sort(function (a, b) { return (b.Jours_sans_activite || 0) - (a.Jours_sans_activite || 0); });
-    html += '<h2 class="fr-h5 fr-mt-4w">Projets à relancer (' + aRelancer.length + ')</h2>';
+    html += '<h2 class="fr-h5 sp-pil-titre" id="sp-pil-relancer">Projets à relancer (' + aRelancer.length + ')</h2>';
     if (!aRelancer.length) {
       html += '<p class="sp-vide">Aucun projet bloqué, endormi ou en retard.</p>';
     } else {
@@ -2540,7 +2545,7 @@
 
     // Projets par phase
     var colonnes = f.archives ? PHASES : PHASES.filter(function (ph) { return ph !== 'Clos'; });
-    html += '<h2 class="fr-h5 fr-mt-4w">Projets par phase</h2>' +
+    html += '<h2 class="fr-h5 sp-pil-titre" id="sp-pil-phases">Projets par phase</h2>' +
       '<p class="fr-hint-text">Déplacer une carte change la phase du projet. Seuls ses porteurs et les administrateurs peuvent le faire.</p>' +
       kanban(colonnes, projets.map(function (p) { return Object.assign({ _colonne: p.Phase || 'Idée' }, p); }), 'Projets', 'Phase', function (p) {
         return '<p class="sp-ticket__titre"><a href="#/projet/' + p.id + '">' + esc(p.Titre || 'Projet sans titre') + '</a></p>' +
@@ -2550,7 +2555,7 @@
       });
 
     // Calendrier des projets
-    html += '<h2 class="fr-h5 fr-mt-4w">Calendrier des projets</h2>' +
+    html += '<h2 class="fr-h5 sp-pil-titre" id="sp-pil-calendrier">Calendrier des projets</h2>' +
       gantt(projets.map(function (p) {
         return {
           libelle: p.Titre || 'Projet sans titre', lien: '#/projet/' + p.id, meta: libelleStructure(p.Structure_porteuse),
@@ -2569,7 +2574,7 @@
       if (endormi(p) || enRetard(p)) g.relance++;
     });
     var cles = Object.keys(groupes).sort(function (a, b) { return groupes[b].total - groupes[a].total; });
-    html += '<h2 class="fr-h5 fr-mt-4w">Répartition par structure</h2>' +
+    html += '<h2 class="fr-h5 sp-pil-titre" id="sp-pil-structures">Répartition par structure</h2>' +
       '<div class="sp-defile"><table class="sp-table"><thead><tr><th>Structure</th><th>Projets</th><th>En cours de vie</th>' +
       '<th>Bloqués</th><th>À relancer</th></tr></thead><tbody>' + cles.map(function (k) {
         var g = groupes[k];
@@ -2829,6 +2834,7 @@
     var el = e.target.closest('[data-action]');
     if (!el) return;
     var a = el.getAttribute('data-action');
+    if (a === 'aller-section') { var cible = document.getElementById(el.getAttribute('data-cible')); if (cible) { cible.setAttribute('tabindex', '-1'); cible.scrollIntoView({ block: 'start' }); cible.focus({ preventScroll: true }); } return; }
     if (a === 'aller-onglet') { etat.onglet = el.getAttribute('data-cible'); etat.alerte = null; etat.suppression = null; rendre(); window.scrollTo(0, 0); return; }
     if (a === 'ajouter-champ-perso') { ajouterChampPerso(); return; }
     if (a === 'utiliser-colonne' && brouillonReglages) {
